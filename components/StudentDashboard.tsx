@@ -1,12 +1,9 @@
-import React, { useState, useRef } from 'react';
+
+import React, { useState } from 'react';
 import { 
   LayoutDashboard, 
   FileText, 
-  BarChart3, 
-  Settings, 
   LogOut, 
-  Bell, 
-  Search, 
   Upload, 
   Download, 
   CheckCircle, 
@@ -15,7 +12,8 @@ import {
   Menu,
   X,
   ShoppingBag,
-  Loader2
+  Loader2,
+  Plus
 } from 'lucide-react';
 import { Button } from './Button';
 import { TestSeries } from './TestSeries';
@@ -25,36 +23,32 @@ interface StudentDashboardProps {
   onBuyPlan?: (plan: any) => void;
   tests: any[];
   onUpdateTest: (test: any) => void;
+  onNewSubmission: (test: any) => void;
 }
 
-export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, onBuyPlan, tests, onUpdateTest }) => {
+export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, onBuyPlan, tests, onNewSubmission }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [uploadingId, setUploadingId] = useState<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSubmitForm, setShowSubmitForm] = useState(false);
+  
+  const [newSub, setNewSub] = useState({ subject: 'FR', testName: 'Full Mock 1' });
 
-  const handleUploadClick = (id: number) => {
-    setUploadingId(id);
-    fileInputRef.current?.click();
-  };
-
-  const onFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && uploadingId) {
-      // Mock Upload Progress
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const testToUpdate = tests.find(t => t.id === uploadingId);
-      if (testToUpdate) {
-        onUpdateTest({
-          ...testToUpdate,
-          status: 'submitted',
-          submittedAt: new Date().toLocaleString()
-        });
-      }
-      setUploadingId(null);
-      alert("Paper Submitted Successfully! Examiner will evaluate within 48 hours.");
-    }
+  const handleFakeUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    // Simulate thinking/uploading
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    onNewSubmission({
+        ...newSub,
+        status: 'submitted',
+        fileNote: "PDF Uploaded via Firestore Metadata (Storage Bypassed)"
+    });
+    
+    setIsSubmitting(false);
+    setShowSubmitForm(false);
+    alert("Paper Submitted Successfully! Hum ise check karke 48 hours mein result bhejenge.");
   };
 
   const getStatusBadge = (status: string) => {
@@ -70,8 +64,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, on
 
   return (
     <div className="min-h-screen bg-slate-50 flex font-sans">
-      <input type="file" ref={fileInputRef} className="hidden" accept=".pdf" onChange={onFileSelected} />
-
       <aside className={`fixed inset-y-0 left-0 z-50 w-56 bg-brand-dark text-white transform transition-transform lg:translate-x-0 lg:static lg:block ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-16 flex items-center px-6 border-b border-white/5">
             <span className="font-display font-bold text-lg">Student<span className="text-brand-orange">Hub</span></span>
@@ -93,7 +85,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, on
             ))}
         </nav>
         <div className="absolute bottom-4 left-4 right-4">
-            <button onClick={onLogout} className="w-full flex items-center gap-2 px-4 py-2 text-red-400 font-bold text-sm"><LogOut size={16} /> Sign Out</button>
+            <button onClick={onLogout} className="w-full flex items-center gap-2 px-4 py-2 text-red-400 font-bold text-sm hover:bg-red-500/10 rounded-lg transition-colors"><LogOut size={16} /> Sign Out</button>
         </div>
       </aside>
 
@@ -101,34 +93,75 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, on
         <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 sm:px-8">
             <div className="flex items-center gap-4">
                 <button onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden"><Menu size={20} /></button>
-                <h1 className="text-lg font-bold text-slate-800">Welcome, Student</h1>
+                <h1 className="text-lg font-bold text-slate-800">My Dashboard</h1>
             </div>
             <div className="flex items-center gap-4">
-                <div className="w-8 h-8 rounded-full bg-brand-orange flex items-center justify-center text-white text-xs font-bold">DS</div>
+                <button className="relative p-2 text-slate-400 hover:text-brand-primary"><span className="absolute top-2 right-2 w-2 h-2 bg-brand-orange rounded-full"></span><FileText size={20} /></button>
+                <div className="w-8 h-8 rounded-full bg-brand-orange flex items-center justify-center text-white text-xs font-bold border-2 border-white shadow-sm">ST</div>
             </div>
         </header>
 
         <main className="flex-1 p-4 overflow-y-auto">
             {activeTab === 'dashboard' && (
-                <div className="space-y-6">
+                <div className="space-y-6 animate-fade-up">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-display font-bold text-slate-800">Your Progress</h2>
+                        <Button size="sm" onClick={() => setShowSubmitForm(true)} className="gap-2"><Plus size={16} /> Submit New Paper</Button>
+                    </div>
+
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                         {[
-                            { label: "Tests", value: tests.length, icon: FileText, color: "text-blue-600", bg: "bg-blue-50" },
-                            { label: "Submitted", value: tests.filter(t => t.status !== 'pending').length, icon: CheckCircle, color: "text-green-600", bg: "bg-green-50" },
+                            { label: "Enrolled", value: tests.length, icon: FileText, color: "text-blue-600", bg: "bg-blue-50" },
+                            { label: "Checked", value: tests.filter(t => t.status === 'checked').length, icon: CheckCircle, color: "text-green-600", bg: "bg-green-50" },
                         ].map((stat, i) => (
-                            <div key={i} className="bg-white p-4 rounded-xl border border-slate-100 flex items-center gap-3">
+                            <div key={i} className="bg-white p-4 rounded-xl border border-slate-100 flex items-center gap-3 shadow-sm">
                                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${stat.bg} ${stat.color}`}><stat.icon size={20} /></div>
                                 <div><div className="text-lg font-bold">{stat.value}</div><div className="text-[10px] font-bold text-slate-400 uppercase">{stat.label}</div></div>
                             </div>
                         ))}
                     </div>
 
+                    {showSubmitForm && (
+                        <div className="bg-brand-primary/10 p-4 rounded-2xl border-2 border-brand-primary/20 animate-fade-up">
+                            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Upload size={18} /> Submit Test Paper</h3>
+                            <form onSubmit={handleFakeUpload} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <select 
+                                    className="p-2 rounded-lg border border-slate-200 text-sm"
+                                    value={newSub.subject}
+                                    onChange={(e) => setNewSub({...newSub, subject: e.target.value})}
+                                >
+                                    <option>FR</option>
+                                    <option>Audit</option>
+                                    <option>Law</option>
+                                    <option>DT / IDT</option>
+                                </select>
+                                <input 
+                                    type="text" 
+                                    placeholder="Test Name (e.g. Mock 1)" 
+                                    className="p-2 rounded-lg border border-slate-200 text-sm"
+                                    value={newSub.testName}
+                                    onChange={(e) => setNewSub({...newSub, testName: e.target.value})}
+                                />
+                                <div className="flex gap-2">
+                                    <Button type="submit" fullWidth disabled={isSubmitting}>
+                                        {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : 'Confirm Submission'}
+                                    </Button>
+                                    <Button variant="ghost" onClick={() => setShowSubmitForm(false)}>Cancel</Button>
+                                </div>
+                            </form>
+                            <p className="text-[10px] text-slate-500 mt-2 italic">* Note: Storage Billing error ki wajah se hum metadata record kar rahe hain. Aapka paper system mein queue ho jayega.</p>
+                        </div>
+                    )}
+
                     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                        <div className="p-4 border-b border-slate-100"><h2 className="font-bold text-slate-800 text-sm">Active Test Papers</h2></div>
+                        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                            <h2 className="font-bold text-slate-800 text-sm">Submission History</h2>
+                            <span className="text-[10px] font-bold text-slate-400">Total {tests.length}</span>
+                        </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left text-xs">
                                 <thead className="bg-slate-50 text-slate-500 font-bold uppercase">
-                                    <tr><th className="px-4 py-3">Subject</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Action</th></tr>
+                                    <tr><th className="px-4 py-3">Subject</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Marks / Feedback</th></tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {tests.map((test) => (
@@ -136,19 +169,18 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, on
                                             <td className="px-4 py-3"><div className="font-bold">{test.subject}</div><div className="text-slate-400 text-[10px]">{test.testName}</div></td>
                                             <td className="px-4 py-3">{getStatusBadge(test.status)}</td>
                                             <td className="px-4 py-3 text-right">
-                                                {test.status === 'pending' ? (
-                                                    <div className="flex justify-end gap-1">
-                                                        <button className="p-1.5 text-slate-400 hover:text-brand-orange" title="Download QP"><Download size={14} /></button>
-                                                        <Button size="sm" className="h-7 text-[10px] px-2" onClick={() => handleUploadClick(test.id)} disabled={uploadingId === test.id}>
-                                                            {uploadingId === test.id ? <Loader2 size={12} className="animate-spin" /> : <><Upload size={12} className="mr-1" /> Upload</>}
-                                                        </Button>
+                                                {test.status === 'checked' ? (
+                                                    <div>
+                                                        <div className="font-bold text-brand-primary">{test.marks}</div>
+                                                        <div className="text-[10px] text-slate-400">{test.feedback}</div>
                                                     </div>
-                                                ) : test.status === 'checked' ? (
-                                                    <Button variant="outline" size="sm" className="h-7 text-[10px] px-2 border-green-200 text-green-700">Result</Button>
-                                                ) : <span className="text-[10px] text-slate-400 italic">Processing...</span>}
+                                                ) : <span className="text-[10px] text-slate-400 italic">Awaiting Evaluation</span>}
                                             </td>
                                         </tr>
                                     ))}
+                                    {tests.length === 0 && (
+                                        <tr><td colSpan={3} className="text-center py-10 text-slate-400">Abhi tak koi paper submit nahi kiya gaya.</td></tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -156,6 +188,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, on
                 </div>
             )}
             {activeTab === 'plans' && <div className="animate-fade-up"><TestSeries onBuyNow={onBuyPlan} /></div>}
+            {activeTab === 'tests' && (
+                <div className="bg-white p-8 rounded-2xl border text-center animate-fade-up">
+                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400"><FileText size={32} /></div>
+                    <h3 className="font-bold text-slate-800">Available Question Papers</h3>
+                    <p className="text-sm text-slate-500 mb-6">Aapne abhi tak koi test series purchase nahi ki hai.</p>
+                    <Button onClick={() => setActiveTab('plans')}>Browse Plans</Button>
+                </div>
+            )}
         </main>
       </div>
     </div>

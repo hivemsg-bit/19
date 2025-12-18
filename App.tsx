@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, query, onSnapshot, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, db } from './lib/firebase';
 import { Layout } from './components/Layout';
 import { Hero } from './components/Hero';
@@ -30,11 +31,21 @@ const App: React.FC = () => {
 
   useEffect(() => {
     // Listen for Auth Changes
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
-        // Simple Logic: If email is admin, set role admin
-        setUserRole(user.email === 'admin@caexam.online' ? 'admin' : 'student');
+        // Admin email check
+        if (user.email === 'admin@caexam.online') {
+          setUserRole('admin');
+        } else {
+          setUserRole('student');
+          // Ensure student exists in Firestore
+          await setDoc(doc(db, "users", user.uid), {
+            name: user.displayName,
+            email: user.email,
+            lastLogin: serverTimestamp()
+          }, { merge: true });
+        }
       } else {
         setUserRole(null);
       }
@@ -48,7 +59,7 @@ const App: React.FC = () => {
       setCallbackRequests(leads);
     });
 
-    // Listen for Shared Tests
+    // Listen for All Submissions/Tests (Real-time)
     const qTests = query(collection(db, "tests"));
     const unsubscribeTests = onSnapshot(qTests, (snapshot) => {
       const tests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -76,27 +87,47 @@ const App: React.FC = () => {
         status: 'Pending',
         createdAt: serverTimestamp()
       });
-      alert("Request Sent! We will call you soon.");
+      alert("Success! Hum aapko jald hi call karenge.");
     } catch (e) {
-      console.error("Error adding document: ", e);
+      console.error("Error: ", e);
+      alert("Database error! Please check Firestore Rules.");
     }
   };
 
   const handleUpdateTest = async (updatedTest: any) => {
     try {
       const testRef = doc(db, "tests", updatedTest.id);
-      await updateDoc(testRef, updatedTest);
+      await updateDoc(testRef, {
+          ...updatedTest,
+          updatedAt: serverTimestamp()
+      });
     } catch (e) {
       console.error("Error updating test: ", e);
     }
   };
+
+  const handleNewSubmission = async (testData: any) => {
+      try {
+          // Since Storage is blocked, we save the submission metadata to Firestore directly
+          await addDoc(collection(db, "tests"), {
+              ...testData,
+              studentId: currentUser?.uid,
+              studentName: currentUser?.displayName,
+              studentEmail: currentUser?.email,
+              status: 'submitted',
+              createdAt: serverTimestamp()
+          });
+      } catch (e) {
+          console.error(e);
+      }
+  }
 
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-brand-cream">
         <div className="flex flex-col items-center gap-4">
            <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
-           <p className="font-bold text-slate-600">Connecting to Cloud...</p>
+           <p className="font-bold text-slate-600 font-display">CA EXAM ONLINE - Loading...</p>
         </div>
       </div>
     );
@@ -114,11 +145,26 @@ const App: React.FC = () => {
   }
 
   if (userRole === 'admin') {
-    return <AdminDashboard onLogout={handleLogout} callbackRequests={callbackRequests} allSharedTests={allTests} onUpdateTest={handleUpdateTest} />;
+    return (
+      <AdminDashboard 
+        onLogout={handleLogout} 
+        callbackRequests={callbackRequests} 
+        allSharedTests={allTests} 
+        onUpdateTest={handleUpdateTest} 
+      />
+    );
   }
 
   if (userRole === 'student') {
-    return <StudentDashboard onLogout={handleLogout} tests={allTests} onUpdateTest={handleUpdateTest} />;
+    const studentTests = allTests.filter(t => t.studentId === currentUser?.uid);
+    return (
+      <StudentDashboard 
+        onLogout={handleLogout} 
+        tests={studentTests} 
+        onUpdateTest={handleUpdateTest}
+        onNewSubmission={handleNewSubmission}
+      />
+    );
   }
 
   return (
