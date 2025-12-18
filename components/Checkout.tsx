@@ -34,7 +34,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ plan, onBack, onSuccess, use
                     planId: plan.id,
                     title: plan.title,
                     purchasedAt: new Date().toISOString(),
-                    level: plan.tag // e.g. "Best Seller" or we can map this better
+                    level: plan.tag // e.g. "Best Seller"
                 }),
                 updatedAt: serverTimestamp()
             });

@@ -1,7 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, query, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, setDoc } from 'firebase/firestore';
+// Use import type for User to avoid resolution issues with modular SDK types
+import { onAuthStateChanged, type User } from 'firebase/auth';
+import { 
+  collection, 
+  query, 
+  onSnapshot, 
+  addDoc, 
+  updateDoc, 
+  doc, 
+  serverTimestamp, 
+  setDoc 
+} from 'firebase/firestore';
 import { auth, db } from './lib/firebase';
 import { Layout } from './components/Layout';
 import { Hero } from './components/Hero';
@@ -30,7 +40,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Listen for Auth Changes
+    // Listen for Auth Changes using modular SDK
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {

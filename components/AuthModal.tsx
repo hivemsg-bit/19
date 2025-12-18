@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { X, Mail, Lock, User, Phone, ArrowRight, Facebook, ShieldCheck, KeyRound } from 'lucide-react';
 import { 
@@ -44,26 +45,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
         }
         onClose();
     } catch (err: any) {
-        console.error(err);
-        setError(err.message || 'Authentication failed. Please check your credentials.');
+        console.error("Auth Error:", err.code, err.message);
+        // Specifically handling common Firebase Auth errors
+        if (err.code === 'auth/invalid-credential') {
+            setError('Invalid email or password. If you are a new user, please click "Sign Up" above to create an account first.');
+        } else if (err.code === 'auth/email-already-in-use') {
+            setError('This email is already registered. Please try logging in.');
+        } else if (err.code === 'auth/weak-password') {
+            setError('Password should be at least 6 characters.');
+        } else {
+            setError('Authentication failed. Please check your internet and try again.');
+        }
     } finally {
         setIsLoading(false);
     }
-  };
-
-  const fillDemoCredentials = (role: 'student' | 'admin') => {
-      setError('');
-      if (role === 'admin') {
-          setIsAdmin(true);
-          setMode('login');
-          setEmail('admin@caexam.online');
-          setPassword('admin123');
-      } else {
-          setIsAdmin(false);
-          setMode('login');
-          setEmail('demo@student.com');
-          setPassword('demo123');
-      }
   };
 
   return (
@@ -89,7 +84,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                   <div className="text-xs font-bold text-white/70 mb-2 flex items-center gap-2">
                       <KeyRound size={12} /> Quick Access Note
                   </div>
-                  <p className="text-[10px] text-slate-300">New users should 'Sign Up' first. Admin account is restricted.</p>
+                  <p className="text-[10px] text-slate-300">If you get an "Invalid Credential" error, it means you need to <b>Sign Up</b> first. Account data is private to your Firebase project.</p>
               </div>
            </div>
         </div>
@@ -104,12 +99,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                 <button onClick={() => setMode('login')} className={`pb-3 text-sm font-bold transition-all ${mode === 'login' ? 'text-brand-orange border-b-2 border-brand-orange' : 'text-slate-400'}`}>Log In</button>
                 {!isAdmin && <button onClick={() => setMode('signup')} className={`pb-3 text-sm font-bold transition-all ${mode === 'signup' ? 'text-brand-orange border-b-2 border-brand-orange' : 'text-slate-400'}`}>Sign Up</button>}
               </div>
-              <button onClick={() => setIsAdmin(!isAdmin)} className={`text-xs font-bold flex items-center gap-1 ${isAdmin ? 'text-red-500' : 'text-slate-400'}`}>
+              <button onClick={() => { setIsAdmin(!isAdmin); setMode('login'); }} className={`text-xs font-bold flex items-center gap-1 ${isAdmin ? 'text-red-500' : 'text-slate-400'}`}>
                 {isAdmin ? <ShieldCheck size={14} /> : <User size={14} />} {isAdmin ? 'Admin Mode' : 'Admin Login'}
               </button>
            </div>
 
-           {error && <div className="mb-4 p-3 bg-red-50 border border-red-100 text-red-600 text-xs rounded-lg">{error}</div>}
+           {error && <div className="mb-4 p-3 bg-red-50 border border-red-100 text-red-600 text-xs rounded-lg animate-wiggle-slow">{error}</div>}
 
            <form className="space-y-4" onSubmit={handleSubmit}>
               {mode === 'signup' && (
