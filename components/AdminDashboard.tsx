@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, FileText, CheckSquare, LogOut, Search, Plus, 
   Upload, Download, Trash2, DollarSign, Menu, X, Pencil, Save, 
-  PhoneIncoming, Check, Loader2, MessageSquare, Award, CheckCircle, Eye, Globe, ArrowRight, BarChart3, ShieldCheck, UserX, UserCheck, ExternalLink, Megaphone, HelpCircle, Mail, Calendar, UserPlus, RefreshCcw, ThumbsUp, ThumbsDown, GraduationCap, Clock, BookOpen, Layers
+  PhoneIncoming, Check, Loader2, MessageSquare, Award, CheckCircle, Eye, Globe, ArrowRight, BarChart3, ShieldCheck, UserX, UserCheck, ExternalLink, Megaphone, HelpCircle, Mail, Calendar, UserPlus, RefreshCcw, ThumbsUp, ThumbsDown, GraduationCap, Clock, BookOpen, Layers, CreditCard
 } from 'lucide-react';
 import { Button } from './Button';
 import { 
@@ -16,7 +16,8 @@ import {
   deleteDoc, 
   query, 
   orderBy,
-  where
+  where,
+  arrayUnion
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
@@ -35,6 +36,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, callba
   const [allStudents, setAllStudents] = useState<any[]>([]);
   const [allTeachers, setAllTeachers] = useState<any[]>([]);
   const [availPapers, setAvailPapers] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [doubts, setDoubts] = useState<any[]>([]);
 
@@ -48,44 +50,84 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, callba
   
   const [newAnnounce, setNewAnnounce] = useState('');
   const [isPostingAnnounce, setIsPostingAnnounce] = useState(false);
-  
-  const [replyingDoubt, setReplyingDoubt] = useState<any | null>(null);
-  const [doubtReply, setDoubtReply] = useState('');
-  const [isReplying, setIsReplying] = useState(false);
 
   // Workflow States
   const [assigningTest, setAssigningTest] = useState<any | null>(null);
-  const [reviewingTest, setReviewingTest] = useState<any | null>(null);
-  const [adminRejectionNote, setAdminRejectionNote] = useState('');
+  const [isProcessingPayment, setIsProcessingPayment] = useState<string | null>(null);
 
   useEffect(() => {
-    // 1. Listen for all users (Students & Teachers)
+    // 1. Listen for all users
     const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
         const users = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         setAllStudents(users.filter((u: any) => u.role === 'student' || !u.role));
         setAllTeachers(users.filter((u: any) => u.role === 'teacher'));
     });
 
-    // 2. Listen for available papers (Inventory)
+    // 2. Listen for available papers
     const qPapers = query(collection(db, "availablePapers"), orderBy("createdAt", "desc"));
     const unsubPapers = onSnapshot(qPapers, (snapshot) => {
       setAvailPapers(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
-    // 3. Listen for Announcements
+    // 3. Listen for Payments to verify
+    const qPayments = query(collection(db, "payments"), orderBy("createdAt", "desc"));
+    const unsubPayments = onSnapshot(qPayments, (snapshot) => {
+        setPayments(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    // 4. Listen for Announcements
     const qAnnounce = query(collection(db, "announcements"), orderBy("createdAt", "desc"));
     const unsubAnnounce = onSnapshot(qAnnounce, (snapshot) => {
         setAnnouncements(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
-    // 4. Listen for Doubts
+    // 5. Listen for Doubts
     const qDoubts = query(collection(db, "doubts"), orderBy("createdAt", "desc"));
     const unsubDoubts = onSnapshot(qDoubts, (snapshot) => {
         setDoubts(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
-    return () => { unsubUsers(); unsubPapers(); unsubAnnounce(); unsubDoubts(); };
+    return () => { unsubUsers(); unsubPapers(); unsubAnnounce(); unsubDoubts(); unsubPayments(); };
   }, []);
+
+  const handleApprovePayment = async (payment: any) => {
+      setIsProcessingPayment(payment.id);
+      try {
+          // 1. Unlock plan for user
+          const userRef = doc(db, "users", payment.studentId);
+          await updateDoc(userRef, {
+              purchasedPlans: arrayUnion({
+                  planId: payment.planId,
+                  title: payment.planTitle,
+                  purchasedAt: new Date().toISOString(),
+                  verifiedUtr: payment.utr
+              }),
+              updatedAt: serverTimestamp()
+          });
+
+          // 2. Update payment status
+          await updateDoc(doc(db, "payments", payment.id), {
+              status: 'approved',
+              verifiedAt: serverTimestamp()
+          });
+
+          alert("Payment Approved & Plan Unlocked!");
+      } catch (e) {
+          console.error(e);
+          alert("Error verifying payment.");
+      } finally {
+          setIsProcessingPayment(null);
+      }
+  };
+
+  const handleRejectPayment = async (paymentId: string) => {
+      if (window.confirm("Reject this payment? Make sure it's invalid.")) {
+          await updateDoc(doc(db, "payments", paymentId), {
+              status: 'rejected',
+              verifiedAt: serverTimestamp()
+          });
+      }
+  };
 
   const handleAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,48 +193,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, callba
     } catch (e) { console.error(e); }
   };
 
-  const handleApproveEvaluation = async (test: any) => {
-      try {
-          await updateDoc(doc(db, "tests", test.id), {
-              status: 'checked',
-              assignmentStatus: 'approved',
-              approvedAt: serverTimestamp()
-          });
-          setReviewingTest(null);
-          alert("Evaluation approved! Student can now see the marks.");
-      } catch (e) { console.error(e); }
-  };
-
-  const handleRejectEvaluation = async (test: any) => {
-      if (!adminRejectionNote) { alert("Please write a reason for the teacher."); return; }
-      try {
-          await updateDoc(doc(db, "tests", test.id), {
-              assignmentStatus: 'rejected',
-              adminComment: adminRejectionNote,
-              status: 'in_evaluation'
-          });
-          setReviewingTest(null);
-          setAdminRejectionNote('');
-          alert("Evaluation sent back to teacher for correction.");
-      } catch (e) { console.error(e); }
-  };
-
-  const handleReplyDoubt = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!doubtReply || !replyingDoubt) return;
-    setIsReplying(true);
-    try {
-        await updateDoc(doc(db, "doubts", replyingDoubt.id), {
-            reply: doubtReply,
-            status: 'resolved',
-            repliedAt: serverTimestamp()
-        });
-        setReplyingDoubt(null);
-        setDoubtReply('');
-    } catch (e) { console.error(e); }
-    setIsReplying(false);
-  };
-
   const handleDeleteLead = async (id: string) => {
     if (window.confirm("Delete this lead?")) {
         await deleteDoc(doc(db, "leads", id));
@@ -210,6 +210,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, callba
   const reviewQueue = allSharedTests.filter(t => t.assignmentStatus === 'pending_approval');
   const pendingDoubts = doubts.filter(d => d.status === 'pending');
   const pendingLeads = callbackRequests.filter(l => l.status === 'Pending');
+  const pendingPayments = payments.filter(p => p.status === 'pending');
 
   return (
     <div className="min-h-screen bg-slate-100 flex font-sans">
@@ -227,12 +228,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, callba
         <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-120px)] no-scrollbar">
             {[
                 { id: 'overview', icon: LayoutDashboard, label: 'Overview' },
+                { id: 'payments', icon: CreditCard, label: 'Verify Payments', badge: pendingPayments.length },
                 { id: 'leads', icon: PhoneIncoming, label: 'Callback Leads', badge: pendingLeads.length },
                 { id: 'broadcast', icon: Megaphone, label: 'Broadcasts' },
                 { id: 'assign', icon: RefreshCcw, label: 'Assign Copies', badge: unassignedTests.length },
                 { id: 'review', icon: ShieldCheck, label: 'Review Queue', badge: reviewQueue.length },
                 { id: 'doubts', icon: HelpCircle, label: 'Resolve Doubts', badge: pendingDoubts.length },
-                { id: 'students', icon: GraduationCap, label: 'All Students' },
                 { id: 'inventory', icon: BookOpen, label: 'Manage Library' },
                 { id: 'team', icon: Users, label: 'Manage Team' },
             ].map((item) => (
@@ -275,16 +276,68 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, callba
                 <div className="space-y-6 animate-fade-up">
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                         {[
+                            { label: "Pending Payments", value: pendingPayments.length, icon: CreditCard, color: "text-red-600", bg: "bg-red-50" },
                             { label: "Pending Leads", value: pendingLeads.length, icon: PhoneIncoming, color: "text-orange-600", bg: "bg-orange-50" },
                             { label: "Unassigned Copies", value: unassignedTests.length, icon: RefreshCcw, color: "text-blue-600", bg: "bg-blue-50" },
                             { label: "Review Queue", value: reviewQueue.length, icon: ShieldCheck, color: "text-purple-600", bg: "bg-purple-50" },
-                            { label: "Total Students", value: allStudents.length, icon: GraduationCap, color: "text-green-600", bg: "bg-green-50" },
                         ].map((stat, i) => (
                             <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
                                 <div className={`p-4 rounded-xl ${stat.bg} ${stat.color}`}><stat.icon size={24} /></div>
                                 <div><div className="text-2xl font-black text-slate-900">{stat.value}</div><div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{stat.label}</div></div>
                             </div>
                         ))}
+                    </div>
+                </div>
+            )}
+
+            {/* PAYMENTS VERIFICATION TAB */}
+            {activeTab === 'payments' && (
+                <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm animate-fade-up">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-slate-50 border-b border-slate-200">
+                                <tr>
+                                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase">Student</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase">Plan</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase">UTR / ID</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase">Amount</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {payments.filter(p => p.status === 'pending').map(p => (
+                                    <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="font-bold text-slate-800">{p.studentName}</div>
+                                            <div className="text-[10px] text-slate-400">{p.studentEmail}</div>
+                                        </td>
+                                        <td className="px-6 py-4 font-bold text-slate-700">{p.planTitle}</td>
+                                        <td className="px-6 py-4 font-mono font-bold text-brand-primary text-sm">{p.utr}</td>
+                                        <td className="px-6 py-4 font-black text-slate-900">₹{p.amount}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex gap-2">
+                                                <button 
+                                                    disabled={isProcessingPayment === p.id}
+                                                    onClick={() => handleApprovePayment(p)} 
+                                                    className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shadow-sm"
+                                                >
+                                                    {isProcessingPayment === p.id ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleRejectPayment(p.id)} 
+                                                    className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                                                >
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {payments.filter(p => p.status === 'pending').length === 0 && (
+                                    <tr><td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold">No pending payments for verification.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             )}
@@ -319,14 +372,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, callba
                                         </td>
                                     </tr>
                                 ))}
-                                {callbackRequests.length === 0 && <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-400 font-bold">No leads found.</td></tr>}
                             </tbody>
                         </table>
                     </div>
                 </div>
             )}
 
-            {/* INVENTORY TAB - Now Material Library */}
+            {/* INVENTORY TAB */}
             {activeTab === 'inventory' && (
                 <div className="space-y-8 animate-fade-up">
                     <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm max-w-2xl">
@@ -351,7 +403,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, callba
                                     <option>MTP (ICAI)</option>
                                     <option>Past Paper</option>
                                     <option>Revision Notes</option>
-                                    <option>Chart Book</option>
                                 </select>
                             </div>
                             <div className="space-y-1">
@@ -395,7 +446,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, callba
                 </div>
             )}
 
-            {/* Rest of Tabs remain similar... (Assign, Review, Doubts, Team) */}
+            {/* ASSIGN COPIES TAB */}
             {activeTab === 'assign' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-up">
                     {unassignedTests.map(copy => (
@@ -411,12 +462,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, callba
                             <Button fullWidth onClick={() => setAssigningTest(copy)}>Select Expert Teacher</Button>
                         </div>
                     ))}
+                    {unassignedTests.length === 0 && <div className="col-span-full py-20 text-center text-slate-400 border-2 border-dashed rounded-3xl bg-white/50 font-bold">No unassigned copies.</div>}
                 </div>
             )}
         </main>
       </div>
 
-      {/* WORKFLOW MODALS... (Rest of code stays the same) */}
+      {/* ASSIGN MODAL */}
       {assigningTest && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
               <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md" onClick={() => setAssigningTest(null)}></div>
