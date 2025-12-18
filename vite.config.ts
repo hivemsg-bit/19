@@ -6,25 +6,17 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   define: {
-    // This ensures process.env is available in the browser, 
-    // which is required by the @google/genai SDK and other logic.
-    'process.env': process.env
+    // Specifically define process.env.API_KEY to avoid "process is not defined" 
+    // and prevent stringifying the entire process.env object which can cause build errors.
+    'process.env.API_KEY': JSON.stringify(process.env.API_KEY || '')
   },
   build: {
+    outDir: 'dist',
+    sourcemap: false,
     rollupOptions: {
-      // We mark these as external because they are handled by the 
-      // importmap in index.html, preventing Rollup from trying to 
-      // bundle them from non-existent node_modules.
-      external: [
-        'react',
-        'react-dom',
-        'lucide-react',
-        'firebase/app',
-        'firebase/auth',
-        'firebase/firestore',
-        'firebase/storage',
-        '@google/genai'
-      ]
+      input: {
+        main: './index.html'
+      }
     }
   }
 })
