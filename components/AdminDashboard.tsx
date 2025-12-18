@@ -1,12 +1,11 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, Users, FileText, CheckSquare, LogOut, Search, Plus, 
   Upload, Download, Trash2, DollarSign, Menu, X, Pencil, Save, 
-  PhoneIncoming, Check, Loader2, MessageSquare, Award, CheckCircle
+  PhoneIncoming, Check, Loader2, MessageSquare, Award, CheckCircle, Eye, Globe
 } from 'lucide-react';
 import { Button } from './Button';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, collection, addDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 interface AdminDashboardProps {
@@ -20,15 +19,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, callba
   const [activeTab, setActiveTab] = useState('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [evaluatingTest, setEvaluatingTest] = useState<any | null>(null);
-  const [evalData, setEvalData] = useState({ marks: '', feedback: '' });
+  const [evalData, setEvalData] = useState({ marks: '', feedback: '', checkedPdfUrl: '' });
   const [isSaving, setIsSaving] = useState(false);
   
+  // Manage Papers State
+  const [availPapers, setAvailPapers] = useState<any[]>([]);
+  const [newPaper, setNewPaper] = useState({ subject: 'Financial Reporting', title: 'Mock Test 1', level: 'Inter', pdfUrl: '' });
+  const [isAddingPaper, setIsAddingPaper] = useState(false);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "availablePapers"), (snapshot) => {
+      setAvailPapers(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return () => unsub();
+  }, []);
+
   const pendingCopies = allSharedTests.filter(t => t.status === 'submitted');
   const checkedCopies = allSharedTests.filter(t => t.status === 'checked');
 
   const handleStartEvaluation = (test: any) => {
     setEvaluatingTest(test);
-    setEvalData({ marks: '', feedback: '' });
+    setEvalData({ marks: '', feedback: '', checkedPdfUrl: '' });
   };
 
   const submitEvaluation = async (e: React.FormEvent) => {
@@ -42,10 +53,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, callba
             status: 'checked',
             marks: evalData.marks,
             feedback: evalData.feedback,
+            checkedPdfUrl: evalData.checkedPdfUrl,
             checkedAt: new Date().toISOString()
         });
         setEvaluatingTest(null);
-        alert("Evaluation Saved Successfully!");
+        alert("Paper Checked & Sent to Student Dashboard!");
     } catch (err) {
         console.error(err);
     } finally {
@@ -53,16 +65,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, callba
     }
   };
 
+  const handleAddPaper = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+        await addDoc(collection(db, "availablePapers"), { ...newPaper, createdAt: serverTimestamp() });
+        setIsAddingPaper(false);
+        setNewPaper({ subject: 'Financial Reporting', title: 'Mock Test 1', level: 'Inter', pdfUrl: '' });
+    } catch (e) { console.error(e); }
+  };
+
+  const deletePaper = async (id: string) => {
+      if(confirm("Delete this question paper?")) {
+          await deleteDoc(doc(db, "availablePapers", id));
+      }
+  };
+
   const updateLeadStatus = async (leadId: string, newStatus: string) => {
       try {
           const leadRef = doc(db, "leads", leadId);
-          await updateDoc(leadRef, { 
-              status: newStatus,
-              updatedAt: serverTimestamp()
-          });
-      } catch (e) {
-          console.error(e);
-      }
+          await updateDoc(leadRef, { status: newStatus, updatedAt: serverTimestamp() });
+      } catch (e) { console.error(e); }
   };
 
   return (
@@ -76,9 +98,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, callba
         <nav className="p-3 space-y-1">
             {[
                 { id: 'overview', icon: LayoutDashboard, label: 'Control Center' },
-                { id: 'checking', icon: CheckSquare, label: 'Pending Papers' },
+                { id: 'checking', icon: CheckSquare, label: 'Pending Evaluations' },
+                { id: 'manage-papers', icon: Globe, label: 'Manage Papers' },
                 { id: 'results', icon: Award, label: 'Checked Archive' },
-                { id: 'callbacks', icon: PhoneIncoming, label: 'Leads & Enquiries' },
+                { id: 'callbacks', icon: PhoneIncoming, label: 'Leads' },
             ].map((item) => (
                 <button
                     key={item.id}
@@ -102,10 +125,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, callba
                 <h1 className="text-lg font-bold text-slate-800 capitalize">{activeTab.replace('-', ' ')}</h1>
             </div>
             <div className="flex items-center gap-3">
-                <div className="text-right hidden sm:block">
-                    <div className="text-xs font-bold text-slate-900">Admin User</div>
-                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Super Admin</div>
-                </div>
+                <div className="text-right hidden sm:block"><div className="text-xs font-bold text-slate-900">Team Admin</div></div>
                 <div className="w-10 h-10 rounded-full bg-brand-dark flex items-center justify-center text-white font-bold text-sm border-2 border-white shadow-sm">AD</div>
             </div>
         </header>
@@ -115,105 +135,73 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, callba
                 <div className="space-y-6 animate-fade-up">
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                         {[
-                            { label: "Total Students", value: "152", icon: Users, bg: "bg-blue-50", color: "text-blue-600" },
                             { label: "Pending Evaluations", value: pendingCopies.length, icon: FileText, bg: "bg-orange-50", color: "text-orange-600" },
-                            { label: "Checked This Month", value: checkedCopies.length, icon: CheckSquare, bg: "bg-green-50", color: "text-green-600" },
-                            { label: "New Leads", value: callbackRequests.filter(l => l.status === 'Pending').length, icon: PhoneIncoming, bg: "bg-purple-50", color: "text-purple-600" },
+                            { label: "Active Papers", value: availPapers.length, icon: Globe, bg: "bg-blue-50", color: "text-blue-600" },
                         ].map((stat, i) => (
-                            <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
+                            <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 flex items-center gap-4 shadow-sm">
                                 <div className={`p-4 rounded-xl ${stat.bg} ${stat.color}`}><stat.icon size={24} /></div>
                                 <div><div className="text-2xl font-black text-slate-900">{stat.value}</div><div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{stat.label}</div></div>
                             </div>
                         ))}
                     </div>
-                    
-                    {/* Recent Submissions Mini Table */}
+                </div>
+            )}
+
+            {activeTab === 'manage-papers' && (
+                <div className="space-y-6 animate-fade-up">
+                    <div className="flex justify-between items-center">
+                        <h3 className="font-bold text-slate-800">Upload New Question Papers</h3>
+                        <Button onClick={() => setIsAddingPaper(true)} size="sm"><Plus size={16} /> Add New Paper</Button>
+                    </div>
+
+                    {isAddingPaper && (
+                        <div className="bg-white p-6 rounded-2xl border-2 border-brand-primary shadow-lg mb-6">
+                            <form onSubmit={handleAddPaper} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold uppercase text-slate-400">Subject</label>
+                                    <input type="text" className="w-full p-2 bg-slate-50 border rounded-lg text-sm" value={newPaper.subject} onChange={(e) => setNewPaper({...newPaper, subject: e.target.value})} />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold uppercase text-slate-400">PDF URL (Google Drive/Link)</label>
+                                    <input type="text" className="w-full p-2 bg-slate-50 border rounded-lg text-sm" placeholder="Paste PDF Link here" value={newPaper.pdfUrl} onChange={(e) => setNewPaper({...newPaper, pdfUrl: e.target.value})} />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold uppercase text-slate-400">Target Level</label>
+                                    <select className="w-full p-2 bg-slate-50 border rounded-lg text-sm" value={newPaper.level} onChange={(e) => setNewPaper({...newPaper, level: e.target.value})}>
+                                        <option>Inter</option>
+                                        <option>Final</option>
+                                        <option>Foundation</option>
+                                    </select>
+                                </div>
+                                <div className="flex items-end gap-2">
+                                    <Button type="submit" fullWidth>Save Paper</Button>
+                                    <button type="button" onClick={() => setIsAddingPaper(false)} className="p-2 bg-slate-100 rounded-lg"><X size={20} /></button>
+                                </div>
+                            </form>
+                        </div>
+                    )}
+
                     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                        <div className="p-4 border-b border-slate-100 font-bold text-slate-800 text-sm">Action Required</div>
-                        <div className="p-4">
-                            {pendingCopies.length > 0 ? (
-                                <div className="space-y-3">
-                                    {pendingCopies.slice(0, 3).map(copy => (
-                                        <div key={copy.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center font-bold text-xs">{copy.studentName?.charAt(0)}</div>
-                                                <div><div className="font-bold text-slate-800 text-xs">{copy.studentName}</div><div className="text-[10px] text-slate-400">{copy.subject} - {copy.testName}</div></div>
-                                            </div>
-                                            <Button size="sm" className="h-8 text-[10px]" onClick={() => handleStartEvaluation(copy)}>Evaluate Now</Button>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center py-6 text-slate-400 text-xs">All papers checked! Nice work.</div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {activeTab === 'checking' && (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 animate-fade-up">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="font-bold text-slate-800 text-lg">Papers Awaiting Evaluation</h3>
-                        <span className="text-xs font-bold text-slate-400 px-3 py-1 bg-slate-50 rounded-full">{pendingCopies.length} Pending</span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {pendingCopies.map((copy) => (
-                            <div key={copy.id} className="p-5 border border-slate-100 rounded-2xl bg-white shadow-sm hover:shadow-md transition-all flex flex-col group">
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-brand-dark group-hover:bg-brand-primary group-hover:text-white transition-colors">
-                                        <FileText size={24} />
-                                    </div>
-                                    <span className="text-[10px] font-bold text-slate-400">#SUB-{copy.id.slice(-4).toUpperCase()}</span>
-                                </div>
-                                <h4 className="font-bold text-slate-800 text-sm mb-1">{copy.studentName}</h4>
-                                <p className="text-[11px] text-slate-500 mb-4">{copy.subject} • {copy.testName}</p>
-                                <div className="mt-auto pt-4 border-t border-slate-50 flex gap-2">
-                                    <button className="flex-1 text-[10px] font-bold py-2 bg-slate-100 rounded-lg text-slate-600 hover:bg-slate-200 transition-colors flex items-center justify-center gap-1"><Download size={12} /> Paper</button>
-                                    <Button size="sm" className="flex-1 text-[10px] h-9" onClick={() => handleStartEvaluation(copy)}>Start Check</Button>
-                                </div>
-                            </div>
-                        ))}
-                        {pendingCopies.length === 0 && (
-                            <div className="col-span-full py-20 text-center">
-                                <CheckCircle className="mx-auto text-green-200 mb-4" size={48} />
-                                <h3 className="font-bold text-slate-800">Queue Clear!</h3>
-                                <p className="text-sm text-slate-500">No pending student papers at the moment.</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {activeTab === 'results' && (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-fade-up">
-                    <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                        <h3 className="font-bold text-slate-800 text-sm">Checked Paper Archive</h3>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-2 text-slate-400" size={14} />
-                            <input type="text" placeholder="Search by student..." className="pl-9 pr-4 py-1.5 bg-white border border-slate-200 rounded-lg text-xs w-48" />
-                        </div>
-                    </div>
-                    <div className="overflow-x-auto">
                         <table className="w-full text-left text-xs">
                             <thead className="bg-slate-50 text-slate-500 font-bold uppercase">
                                 <tr>
-                                    <th className="px-6 py-4">Student</th>
-                                    <th className="px-6 py-4">Subject</th>
-                                    <th className="px-6 py-4">Marks</th>
-                                    <th className="px-6 py-4">Feedback Snippet</th>
+                                    <th className="px-6 py-4">Paper Details</th>
+                                    <th className="px-6 py-4">Level</th>
+                                    <th className="px-6 py-4">Link</th>
                                     <th className="px-6 py-4 text-right">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {checkedCopies.map((test) => (
-                                    <tr key={test.id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-6 py-4 font-bold text-slate-800">{test.studentName}</td>
-                                        <td className="px-6 py-4 text-slate-500">{test.subject} - {test.testName}</td>
-                                        <td className="px-6 py-4"><span className="px-2 py-1 bg-green-50 text-green-700 rounded-lg font-bold">{test.marks}</span></td>
-                                        <td className="px-6 py-4 text-slate-400 italic line-clamp-1 max-w-[200px]">{test.feedback}</td>
+                                {availPapers.map(p => (
+                                    <tr key={p.id}>
+                                        <td className="px-6 py-4">
+                                            <div className="font-bold">{p.subject}</div>
+                                            <div className="text-slate-400">{p.title}</div>
+                                        </td>
+                                        <td className="px-6 py-4"><span className="px-2 py-0.5 bg-slate-100 rounded-full">{p.level}</span></td>
+                                        <td className="px-6 py-4"><a href={p.pdfUrl} target="_blank" className="text-brand-primary underline truncate max-w-[150px] inline-block">{p.pdfUrl}</a></td>
                                         <td className="px-6 py-4 text-right">
-                                            <button className="p-2 text-slate-400 hover:text-brand-primary"><Pencil size={14} /></button>
+                                            <button onClick={() => deletePaper(p.id)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
                                         </td>
                                     </tr>
                                 ))}
@@ -223,72 +211,48 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, callba
                 </div>
             )}
 
-            {activeTab === 'callbacks' && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-up">
-                    <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 font-bold text-slate-800 text-sm">Fresh Leads</div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-xs">
-                                <thead className="bg-slate-50 text-slate-500 font-bold uppercase">
-                                    <tr>
-                                        <th className="px-4 py-3">Student Details</th>
-                                        <th className="px-4 py-3">Course</th>
-                                        <th className="px-4 py-3">Status</th>
-                                        <th className="px-4 py-3 text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {callbackRequests.sort((a,b) => b.createdAt?.seconds - a.createdAt?.seconds).map((req) => (
-                                        <tr key={req.id} className="hover:bg-slate-50 group">
-                                            <td className="px-4 py-3">
-                                                <div className="font-bold text-slate-800">{req.name}</div>
-                                                <div className="text-slate-400 font-mono text-[10px]">{req.mobile}</div>
-                                            </td>
-                                            <td className="px-4 py-3"><span className="px-2 py-0.5 bg-slate-100 rounded-full font-bold">{req.course}</span></td>
-                                            <td className="px-4 py-3">
-                                                <select 
-                                                    value={req.status || 'Pending'} 
-                                                    onChange={(e) => updateLeadStatus(req.id, e.target.value)}
-                                                    className={`text-[10px] font-bold px-2 py-1 rounded-full border-none focus:ring-1 focus:ring-brand-primary cursor-pointer
-                                                        ${req.status === 'Called' ? 'bg-blue-50 text-blue-600' : 
-                                                          req.status === 'Interested' ? 'bg-green-50 text-green-600' : 
-                                                          'bg-orange-50 text-orange-600'}`}
-                                                >
-                                                    <option value="Pending">Pending</option>
-                                                    <option value="Called">Called</option>
-                                                    <option value="Interested">Interested</option>
-                                                    <option value="Joined">Joined</option>
-                                                </select>
-                                            </td>
-                                            <td className="px-4 py-3 text-right">
-                                                <a href={`tel:${req.mobile}`} className="p-2 text-brand-primary bg-brand-primary/10 rounded-lg inline-block opacity-0 group-hover:opacity-100 transition-opacity"><PhoneIncoming size={12} /></a>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    
-                    <div className="space-y-4">
-                        <div className="bg-brand-dark text-white p-6 rounded-2xl shadow-lg border border-white/5 relative overflow-hidden">
-                            <div className="relative z-10">
-                                <h3 className="font-bold mb-2">Lead Summary</h3>
-                                <div className="space-y-3 mt-4">
-                                    <div className="flex justify-between items-center text-xs">
-                                        <span className="text-slate-400">Conversion Rate</span>
-                                        <span className="font-bold">12%</span>
-                                    </div>
-                                    <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
-                                        <div className="h-full bg-brand-orange w-[12%]"></div>
-                                    </div>
-                                    <p className="text-[10px] text-slate-400 italic">Target 20% by end of session.</p>
-                                </div>
+            {activeTab === 'checking' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-up">
+                    {pendingCopies.map((copy) => (
+                        <div key={copy.id} className="bg-white p-5 border border-slate-200 rounded-2xl shadow-sm">
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="w-10 h-10 bg-brand-orange/10 rounded-lg flex items-center justify-center text-brand-orange"><FileText size={20} /></div>
+                                <span className="text-[10px] font-bold text-slate-400">Pending</span>
                             </div>
-                            <Users size={80} className="absolute -bottom-4 -right-4 text-white/5" />
+                            <h4 className="font-bold text-slate-800">{copy.studentName}</h4>
+                            <p className="text-[11px] text-slate-500">{copy.subject} - {copy.testName}</p>
+                            <div className="mt-4 flex gap-2">
+                                <Button size="sm" fullWidth onClick={() => handleStartEvaluation(copy)}>Evaluate Paper</Button>
+                            </div>
                         </div>
-                    </div>
+                    ))}
+                    {pendingCopies.length === 0 && <div className="col-span-full py-20 text-center text-slate-400">No pending papers! All clear.</div>}
                 </div>
+            )}
+
+            {activeTab === 'results' && (
+                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm animate-fade-up">
+                    <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-slate-500 font-bold uppercase">
+                            <tr>
+                                <th className="px-6 py-4">Student</th>
+                                <th className="px-6 py-4">Score</th>
+                                <th className="px-6 py-4">Checked PDF</th>
+                                <th className="px-6 py-4 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {checkedCopies.map(test => (
+                                <tr key={test.id}>
+                                    <td className="px-6 py-4 font-bold">{test.studentName}</td>
+                                    <td className="px-6 py-4"><span className="font-black text-brand-primary">{test.marks}</span></td>
+                                    <td className="px-6 py-4 truncate max-w-[150px] text-slate-400 italic">{test.checkedPdfUrl || 'No link'}</td>
+                                    <td className="px-6 py-4 text-right"><button className="p-2 text-slate-400"><Pencil size={14} /></button></td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                 </div>
             )}
         </main>
       </div>
@@ -301,45 +265,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, callba
                 <form onSubmit={submitEvaluation}>
                     <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
                         <div>
-                            <h3 className="font-display font-bold text-xl">Evaluate Paper</h3>
+                            <h3 className="font-display font-bold text-xl">Evaluation Sheet</h3>
                             <p className="text-xs text-slate-400">{evaluatingTest.studentName} • {evaluatingTest.subject}</p>
                         </div>
-                        <button type="button" onClick={() => setEvaluatingTest(null)} className="p-2 bg-white/10 rounded-full hover:bg-white/20"><X size={18} /></button>
+                        <button type="button" onClick={() => setEvaluatingTest(null)} className="p-2 bg-white/10 rounded-full"><X size={18} /></button>
                     </div>
                     
                     <div className="p-8 space-y-6">
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                                <Award size={14} className="text-brand-orange" /> Score / Marks
-                            </label>
-                            <input 
-                                type="text" 
-                                placeholder="e.g. 78/100" 
-                                required
-                                value={evalData.marks}
-                                onChange={(e) => setEvalData({...evalData, marks: e.target.value})}
-                                className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-lg font-bold text-slate-900 focus:border-brand-primary outline-none transition-colors"
-                            />
+                            <label className="text-xs font-bold text-slate-700 uppercase tracking-widest">Score / Marks</label>
+                            <input type="text" required value={evalData.marks} onChange={(e) => setEvalData({...evalData, marks: e.target.value})} className="w-full p-4 bg-slate-50 border rounded-2xl text-lg font-bold" placeholder="e.g. 82/100" />
                         </div>
-
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                                <MessageSquare size={14} className="text-brand-primary" /> Evaluation Feedback
-                            </label>
-                            <textarea 
-                                rows={5}
-                                placeholder="Write detailed feedback for the student..." 
-                                required
-                                value={evalData.feedback}
-                                onChange={(e) => setEvalData({...evalData, feedback: e.target.value})}
-                                className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm text-slate-700 focus:border-brand-primary outline-none transition-colors resize-none"
-                            ></textarea>
+                            <label className="text-xs font-bold text-slate-700 uppercase tracking-widest">Checked PDF URL (Google Drive Link)</label>
+                            <input type="text" value={evalData.checkedPdfUrl} onChange={(e) => setEvalData({...evalData, checkedPdfUrl: e.target.value})} className="w-full p-3 bg-slate-50 border rounded-xl text-sm" placeholder="Paste checked paper link here" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-700 uppercase tracking-widest">Feedback Comments</label>
+                            <textarea rows={4} required value={evalData.feedback} onChange={(e) => setEvalData({...evalData, feedback: e.target.value})} className="w-full p-4 bg-slate-50 border rounded-2xl text-sm resize-none" placeholder="Explain the scoring logic..."></textarea>
                         </div>
                     </div>
 
-                    <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-4">
-                        <Button type="submit" fullWidth disabled={isSaving} className="h-12 text-sm font-bold shadow-lg shadow-brand-orange/20">
-                            {isSaving ? <Loader2 size={18} className="animate-spin" /> : 'Confirm & Send to Student'}
+                    <div className="p-6 bg-slate-50 border-t flex gap-4">
+                        <Button type="submit" fullWidth disabled={isSaving}>
+                            {isSaving ? <Loader2 size={18} className="animate-spin" /> : 'Finish & Upload Result'}
                         </Button>
                     </div>
                 </form>

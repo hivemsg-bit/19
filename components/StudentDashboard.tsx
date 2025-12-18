@@ -3,11 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, FileText, LogOut, Upload, Download, CheckCircle, 
   Clock, AlertCircle, Menu, X, ShoppingBag, Loader2, Plus, ArrowRight, 
-  MessageCircle, Award, Eye, FileSearch
+  MessageCircle, Award, Eye, FileSearch, Globe, Check
 } from 'lucide-react';
 import { Button } from './Button';
 import { TestSeries } from './TestSeries';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 
 interface StudentDashboardProps {
@@ -26,16 +26,22 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, on
   const [selectedResult, setSelectedResult] = useState<any | null>(null);
   const [viewPdfUrl, setViewPdfUrl] = useState<string | null>(null);
   const [userData, setUserData] = useState<any>(null);
+  const [availPapers, setAvailPapers] = useState<any[]>([]);
 
-  const [newSub, setNewSub] = useState({ subject: 'FR', testName: 'Full Mock 1' });
+  const [newSub, setNewSub] = useState({ subject: 'Financial Reporting', testName: 'Full Mock 1' });
 
   useEffect(() => {
     const user = auth.currentUser;
     if (user) {
-        const unsub = onSnapshot(doc(db, "users", user.uid), (doc) => {
+        const unsubUser = onSnapshot(doc(db, "users", user.uid), (doc) => {
             setUserData(doc.data());
         });
-        return () => unsub();
+        
+        const unsubPapers = onSnapshot(collection(db, "availablePapers"), (snapshot) => {
+            setAvailPapers(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
+
+        return () => { unsubUser(); unsubPapers(); };
     }
   }, []);
 
@@ -47,20 +53,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, on
     onNewSubmission({
         ...newSub,
         status: 'submitted',
-        fileNote: "PDF Uploaded via Firestore Metadata"
+        fileNote: "PDF Submitted for Evaluation"
     });
     
     setIsSubmitting(false);
     setShowSubmitForm(false);
-    alert("Paper Submitted Successfully!");
+    alert("Paper Submitted Successfully! Our team will evaluate it within 48 hours.");
   };
-
-  // Mock available question papers based on common ICAI subjects
-  const availableQuestionPapers = [
-    { id: 'q1', subject: 'Financial Reporting', name: 'Mock 1 (ICAI Pattern)', url: 'https://www.icai.org/post.html?post_id=17783' }, // Placeholder links
-    { id: 'q2', subject: 'Advanced Auditing', name: 'Mock 1 (ICAI Pattern)', url: 'https://www.icai.org/post.html?post_id=17784' },
-    { id: 'q3', subject: 'Direct Tax', name: 'Full Syllabus', url: 'https://www.icai.org/post.html?post_id=17785' },
-  ];
 
   const getStatusBadge = (status: string) => {
     switch(status) {
@@ -74,6 +73,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, on
   };
 
   const openPdfViewer = (url: string) => {
+    if (!url) { alert("PDF URL not found."); return; }
     // Google Docs Viewer integration
     const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
     setViewPdfUrl(viewerUrl);
@@ -125,16 +125,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, on
                 <div className="max-w-6xl mx-auto space-y-10 animate-fade-up">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                         <div>
-                            <h2 className="text-2xl font-display font-bold text-slate-900">Your Progress</h2>
-                            <p className="text-sm text-slate-500">Track your mock test results and feedback.</p>
+                            <h2 className="text-2xl font-display font-bold text-slate-900">Training Progress</h2>
+                            <p className="text-sm text-slate-500">Access your materials and view evaluated papers.</p>
                         </div>
-                        <Button onClick={() => setShowSubmitForm(true)} className="gap-2 px-6 h-12 shadow-lg shadow-brand-orange/20"><Plus size={20} /> Submit New Paper</Button>
+                        <Button onClick={() => setShowSubmitForm(true)} className="gap-2 px-6 h-12 shadow-lg shadow-brand-orange/20"><Plus size={20} /> Submit Solved Paper</Button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {[
-                            { label: "Total Papers", value: tests.length, icon: FileText, color: "text-blue-600", bg: "bg-blue-50" },
-                            { label: "Checked", value: tests.filter(t => t.status === 'checked').length, icon: CheckCircle, color: "text-green-600", bg: "bg-green-50" },
+                            { label: "Submissions", value: tests.length, icon: FileText, color: "text-blue-600", bg: "bg-blue-50" },
+                            { label: "Evaluated", value: tests.filter(t => t.status === 'checked').length, icon: CheckCircle, color: "text-green-600", bg: "bg-green-50" },
                             { label: "Pending", value: tests.filter(t => t.status === 'submitted').length, icon: Clock, color: "text-orange-600", bg: "bg-orange-50" },
                         ].map((stat, i) => (
                             <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 flex items-center gap-5 shadow-sm">
@@ -146,7 +146,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, on
 
                     {showSubmitForm && (
                         <div className="bg-white p-8 rounded-3xl border-2 border-brand-primary shadow-2xl animate-fade-up relative overflow-hidden">
-                            <h3 className="font-bold text-slate-800 text-lg mb-6 flex items-center gap-2"><Upload size={22} className="text-brand-primary" /> Submit Answer Sheet</h3>
+                            <h3 className="font-bold text-slate-800 text-lg mb-6 flex items-center gap-2"><Upload size={22} className="text-brand-primary" /> Submit Your Answer Sheet</h3>
                             <form onSubmit={handleFakeUpload} className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Subject</label>
@@ -155,14 +155,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, on
                                         <option>Advanced Auditing</option>
                                         <option>Direct Tax</option>
                                         <option>Indirect Tax</option>
+                                        <option>Law</option>
                                     </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Test Name</label>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Test Version</label>
                                     <input type="text" placeholder="e.g. Mock 1" className="w-full p-3 rounded-xl border-2 border-slate-100 text-sm" value={newSub.testName} onChange={(e) => setNewSub({...newSub, testName: e.target.value})} />
                                 </div>
                                 <div className="flex items-end gap-3">
-                                    <Button type="submit" fullWidth h-12 disabled={isSubmitting}>{isSubmitting ? <Loader2 size={18} className="animate-spin" /> : 'Submit'}</Button>
+                                    <Button type="submit" fullWidth h-12 disabled={isSubmitting}>{isSubmitting ? <Loader2 size={18} className="animate-spin" /> : 'Confirm Upload'}</Button>
                                     <button type="button" onClick={() => setShowSubmitForm(false)} className="h-12 w-12 bg-slate-100 rounded-xl text-slate-400"><X size={20} /></button>
                                 </div>
                             </form>
@@ -174,34 +175,39 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, on
             {activeTab === 'papers' && (
                 <div className="max-w-6xl mx-auto space-y-6 animate-fade-up">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-2xl font-display font-bold text-slate-900">Download Question Papers</h2>
-                        {userData?.purchasedPlans?.length > 0 && <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">Plan Active</span>}
+                        <h2 className="text-2xl font-display font-bold text-slate-900">Available Question Papers</h2>
+                        {userData?.purchasedPlans?.length > 0 && <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold flex items-center gap-1"><Check size={12} /> Plan Active</span>}
                     </div>
 
                     {userData?.purchasedPlans?.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {availableQuestionPapers.map(paper => (
+                            {availPapers.length > 0 ? availPapers.map(paper => (
                                 <div key={paper.id} className="bg-white p-6 rounded-2xl border border-slate-200 flex items-center justify-between group hover:border-brand-primary transition-all shadow-sm">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-brand-primary transition-colors"><FileText size={24} /></div>
+                                        <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-brand-primary transition-colors"><FileSearch size={24} /></div>
                                         <div>
                                             <div className="font-bold text-slate-800 text-sm">{paper.subject}</div>
-                                            <div className="text-xs text-slate-400">{paper.name}</div>
+                                            <div className="text-xs text-slate-400">{paper.title} • {paper.level}</div>
                                         </div>
                                     </div>
                                     <div className="flex gap-2">
-                                        <button onClick={() => openPdfViewer(paper.url)} className="p-2 text-slate-400 hover:text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-all" title="View Online"><Eye size={18} /></button>
-                                        <a href={paper.url} target="_blank" rel="noopener noreferrer" className="p-2 text-slate-400 hover:text-brand-orange hover:bg-brand-orange/10 rounded-lg transition-all" title="Download"><Download size={18} /></a>
+                                        <button onClick={() => openPdfViewer(paper.pdfUrl)} className="p-2 text-slate-400 hover:text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-all" title="Open Online"><Eye size={18} /></button>
+                                        <a href={paper.pdfUrl} target="_blank" rel="noopener noreferrer" className="p-2 text-slate-400 hover:text-brand-orange hover:bg-brand-orange/10 rounded-lg transition-all" title="Download"><Download size={18} /></a>
                                     </div>
                                 </div>
-                            ))}
+                            )) : (
+                                <div className="col-span-full py-20 text-center bg-white rounded-3xl border-2 border-dashed">
+                                    <Globe className="mx-auto text-slate-200 mb-4" size={48} />
+                                    <h4 className="font-bold text-slate-400 uppercase tracking-widest text-xs">Waiting for Admin to upload papers...</h4>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div className="bg-white p-16 rounded-[2rem] border-2 border-dashed border-slate-200 text-center">
                             <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-slate-400"><Lock size={40} /></div>
-                            <h3 className="text-2xl font-bold text-slate-900 mb-2">Access Locked</h3>
-                            <p className="text-slate-500 mb-8 max-w-sm mx-auto">Question papers dekhne ke liye sabase pehle ek plan khareedein.</p>
-                            <Button onClick={() => setActiveTab('plans')} size="lg">Explore Plans</Button>
+                            <h3 className="text-2xl font-bold text-slate-900 mb-2">Access Question Papers</h3>
+                            <p className="text-slate-500 mb-8 max-w-sm mx-auto">Papers download karne ke liye aapko ek test series plan khareedna hoga.</p>
+                            <Button onClick={() => setActiveTab('plans')} size="lg">Buy Test Series</Button>
                         </div>
                     )}
                 </div>
@@ -209,7 +215,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, on
 
             {activeTab === 'tests' && (
                 <div className="max-w-6xl mx-auto animate-fade-up">
-                    <h2 className="text-2xl font-display font-bold text-slate-900 mb-6">Submission History</h2>
+                    <h2 className="text-2xl font-display font-bold text-slate-900 mb-6">Submission Status</h2>
                     <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
                         {tests.map((test) => (
                             <div key={test.id} className="p-6 flex flex-col sm:flex-row items-center justify-between hover:bg-slate-50 transition-colors gap-4 border-b last:border-none">
@@ -224,9 +230,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, on
                                             <div className="text-right">
                                                 <div className="text-lg font-black text-brand-primary leading-none">{test.marks}</div>
                                             </div>
-                                            <button onClick={() => setSelectedResult(test)} className="p-3 bg-brand-primary/10 text-brand-primary rounded-xl hover:bg-brand-primary hover:text-white"><Eye size={18} /></button>
+                                            <button onClick={() => setSelectedResult(test)} className="p-3 bg-brand-primary/10 text-brand-primary rounded-xl hover:bg-brand-primary hover:text-white" title="View Evaluation Report"><Eye size={18} /></button>
+                                            {test.checkedPdfUrl && (
+                                                <button onClick={() => openPdfViewer(test.checkedPdfUrl)} className="p-3 bg-brand-orange/10 text-brand-orange rounded-xl hover:bg-brand-orange hover:text-white" title="Direct Open Checked PDF"><Globe size={18} /></button>
+                                            )}
                                         </div>
-                                    ) : <span className="text-[10px] text-slate-400">Review in progress</span>}
+                                    ) : <span className="text-[10px] text-slate-400">Reviewing Paper...</span>}
                                 </div>
                             </div>
                         ))}
@@ -244,7 +253,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, on
               <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-md" onClick={() => setViewPdfUrl(null)}></div>
               <div className="relative flex-1 bg-white rounded-2xl overflow-hidden flex flex-col animate-fade-up">
                   <div className="bg-slate-900 p-4 text-white flex justify-between items-center">
-                      <span className="font-bold text-sm">Online Paper Viewer (via Google Docs)</span>
+                      <div className="flex items-center gap-3">
+                        <Globe size={18} className="text-brand-orange" />
+                        <span className="font-bold text-sm">Paper Preview (Embedded via Google Docs)</span>
+                      </div>
                       <button onClick={() => setViewPdfUrl(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={20} /></button>
                   </div>
                   <iframe src={viewPdfUrl} className="w-full h-full border-none" />
@@ -260,21 +272,23 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, on
                   <div className="p-8 bg-brand-primary text-white">
                       <div className="flex items-center gap-4">
                           <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center"><Award size={32} /></div>
-                          <div><h3 className="text-2xl font-display font-bold">Evaluation Report</h3><p className="text-white/70 text-sm">{selectedResult.subject}</p></div>
+                          <div><h3 className="text-2xl font-display font-bold">Evaluation Result</h3><p className="text-white/70 text-sm">{selectedResult.subject} • {selectedResult.testName}</p></div>
                       </div>
                   </div>
                   <div className="p-8 space-y-10">
                       <div className="flex items-center justify-between p-6 bg-slate-50 rounded-[1.5rem]">
-                          <div><div className="text-[10px] font-black text-slate-400 uppercase mb-1">Score</div><div className="text-5xl font-black text-slate-900">{selectedResult.marks}</div></div>
+                          <div><div className="text-[10px] font-black text-slate-400 uppercase mb-1">Score Obtained</div><div className="text-5xl font-black text-slate-900">{selectedResult.marks}</div></div>
                           <div className="text-xl font-bold text-green-600 flex items-center gap-2"><CheckCircle size={20} /> PASSED</div>
                       </div>
                       <div className="space-y-4">
-                          <h4 className="font-bold text-slate-900 flex items-center gap-2"><MessageCircle size={20} className="text-brand-primary" /> Expert Feedback</h4>
-                          <div className="p-6 bg-brand-cream/50 rounded-2xl border-l-4 border-brand-primary text-sm italic">"{selectedResult.feedback}"</div>
+                          <h4 className="font-bold text-slate-900 flex items-center gap-2"><MessageCircle size={20} className="text-brand-primary" /> Evaluation Feedback</h4>
+                          <div className="p-6 bg-brand-cream/50 rounded-2xl border-l-4 border-brand-primary text-sm italic leading-relaxed">"{selectedResult.feedback}"</div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <button onClick={() => openPdfViewer('https://www.icai.org/post.html?post_id=17783')} className="flex items-center justify-center gap-2 p-4 bg-slate-900 text-white rounded-2xl font-bold text-sm shadow-lg"><Eye size={18} /> View Checked Copy</button>
-                          <button onClick={() => setViewPdfUrl(null)} className="p-4 border-2 border-slate-100 text-slate-700 rounded-2xl font-bold text-sm">Close</button>
+                          {selectedResult.checkedPdfUrl && (
+                              <button onClick={() => openPdfViewer(selectedResult.checkedPdfUrl)} className="flex items-center justify-center gap-2 p-4 bg-slate-900 text-white rounded-2xl font-bold text-sm shadow-lg"><Eye size={18} /> View Checked Copy</button>
+                          )}
+                          <button onClick={() => setSelectedResult(null)} className="p-4 border-2 border-slate-100 text-slate-700 rounded-2xl font-bold text-sm">Close Report</button>
                       </div>
                   </div>
               </div>
