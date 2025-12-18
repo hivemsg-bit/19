@@ -1,18 +1,19 @@
 
 import React, { useState } from 'react';
-import { X, Mail, Lock, User, Phone, ArrowRight, Facebook, ShieldCheck, KeyRound } from 'lucide-react';
+import { X, Mail, Lock, User, Phone, ArrowRight, Facebook, ShieldCheck, KeyRound, BookOpen } from 'lucide-react';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   updateProfile 
 } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '../lib/firebase';
 import { Button } from './Button';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLoginSuccess?: (role: 'student' | 'admin') => void;
+  onLoginSuccess?: (role: 'student' | 'admin' | 'teacher') => void;
   initialMode?: 'login' | 'signup';
 }
 
@@ -36,25 +37,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
     try {
         if (mode === 'login') {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            const role = userCredential.user.email === 'admin@caexam.online' ? 'admin' : 'student';
+            const user = userCredential.user;
+            
+            // Default role is student, check admin email or Firestore for teacher
+            let role: 'student' | 'admin' | 'teacher' = 'student';
+            if (user.email === 'admin@caexam.online') {
+                role = 'admin';
+            } else {
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                const data = userDoc.data();
+                if (data?.role === 'teacher') role = 'teacher';
+            }
+            
             if (onLoginSuccess) onLoginSuccess(role);
         } else {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             await updateProfile(userCredential.user, { displayName: name });
+            
+            // New signups are students by default unless their email matches an authorized teacher entry
+            // For simplicity in this demo, new signups are students.
             if (onLoginSuccess) onLoginSuccess('student');
         }
         onClose();
     } catch (err: any) {
-        console.error("Auth Error:", err.code, err.message);
-        // Specifically handling common Firebase Auth errors
+        console.error("Auth Error:", err.code);
         if (err.code === 'auth/invalid-credential') {
-            setError('Invalid email or password. If you are a new user, please click "Sign Up" above to create an account first.');
+            setError('Invalid email or password. Please try again.');
         } else if (err.code === 'auth/email-already-in-use') {
-            setError('This email is already registered. Please try logging in.');
-        } else if (err.code === 'auth/weak-password') {
-            setError('Password should be at least 6 characters.');
+            setError('This email is already registered.');
         } else {
-            setError('Authentication failed. Please check your internet and try again.');
+            setError('Authentication failed. Please try again.');
         }
     } finally {
         setIsLoading(false);
@@ -66,31 +78,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
 
       <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col md:flex-row animate-fade-up">
-        <button onClick={onClose} className="md:hidden absolute top-4 right-4 p-2 bg-slate-100 rounded-full text-slate-500 z-20">
-          <X size={20} />
-        </button>
-
         <div className={`hidden md:flex w-5/12 relative flex-col justify-between p-10 text-white overflow-hidden transition-colors duration-500 ${isAdmin ? 'bg-slate-900' : 'bg-brand-dark'}`}>
            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-transparent to-black/30 z-0"></div>
            <div className="relative z-10">
               <span className={`font-bold tracking-wider uppercase text-xs mb-2 block ${isAdmin ? 'text-red-400' : 'text-brand-orange'}`}>
-                {isAdmin ? 'Admin Portal' : (mode === 'login' ? 'Welcome Back' : 'Join Us')}
+                {isAdmin ? 'Management' : (mode === 'login' ? 'Welcome Back' : 'Start Preparation')}
               </span>
               <h2 className="text-4xl font-display font-bold mb-4">
-                 {isAdmin ? 'Control Center.' : (mode === 'login' ? 'Continue your Journey.' : 'Start your Success Story.')}
+                 {isAdmin ? 'Exam Portal Access.' : (mode === 'login' ? 'Practice. Improve. Succeed.' : 'Your AIR Journey Starts.')}
               </h2>
-              
-              <div className="mt-8 bg-white/10 rounded-xl p-4 backdrop-blur-md border border-white/10">
-                  <div className="text-xs font-bold text-white/70 mb-2 flex items-center gap-2">
-                      <KeyRound size={12} /> Quick Access Note
-                  </div>
-                  <p className="text-[10px] text-slate-300">If you get an "Invalid Credential" error, it means you need to <b>Sign Up</b> first. Account data is private to your Firebase project.</p>
+              <div className="mt-8 flex items-center gap-3 text-white/60 text-xs">
+                <ShieldCheck size={16} /> Certified Evaluation Platform
               </div>
            </div>
         </div>
 
         <div className="w-full md:w-7/12 p-8 md:p-12 bg-white relative">
-           <button onClick={onClose} className="hidden md:block absolute top-6 right-6 p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+           <button onClick={onClose} className="absolute top-6 right-6 p-2 hover:bg-slate-100 rounded-full text-slate-400">
              <X size={24} />
            </button>
 
@@ -100,7 +104,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                 {!isAdmin && <button onClick={() => setMode('signup')} className={`pb-3 text-sm font-bold transition-all ${mode === 'signup' ? 'text-brand-orange border-b-2 border-brand-orange' : 'text-slate-400'}`}>Sign Up</button>}
               </div>
               <button onClick={() => { setIsAdmin(!isAdmin); setMode('login'); }} className={`text-xs font-bold flex items-center gap-1 ${isAdmin ? 'text-red-500' : 'text-slate-400'}`}>
-                {isAdmin ? <ShieldCheck size={14} /> : <User size={14} />} {isAdmin ? 'Admin Mode' : 'Admin Login'}
+                {isAdmin ? <ShieldCheck size={14} /> : <User size={14} />} {isAdmin ? 'Admin/Faculty Mode' : 'Admin/Faculty Login'}
               </button>
            </div>
 
@@ -112,11 +116,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                   <label className="text-xs font-bold text-slate-700">Full Name</label>
                   <div className="relative">
                     <User className="absolute left-3 top-3 text-slate-400" size={16} />
-                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="John Doe" className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm" required />
+                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Full Name" className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm" required />
                   </div>
                 </div>
               )}
-
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-700">Email Address</label>
                 <div className="relative">
@@ -124,7 +127,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                   <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@example.com" className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm" required />
                 </div>
               </div>
-
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-700">Password</label>
                 <div className="relative">
@@ -141,10 +143,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
 
            <div className="mt-6 text-center text-sm text-slate-500">
               {isAdmin ? (
-                  <button onClick={() => setIsAdmin(false)} className="hover:underline">Back to Student Login</button>
+                  <p className="flex items-center justify-center gap-2"><BookOpen size={14} className="text-brand-orange" /> Faculty & Staff Login Only</p>
               ) : (
                   <button onClick={() => setMode(mode === 'login' ? 'signup' : 'login')} className="text-brand-primary font-bold hover:underline">
-                    {mode === 'login' ? 'Need an account? Sign Up' : 'Already have an account? Log In'}
+                    {mode === 'login' ? 'New Student? Sign Up' : 'Already registered? Log In'}
                   </button>
               )}
            </div>

@@ -24,11 +24,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 /**
- * Initialize Firestore with specific settings to resolve connectivity issues:
- * 1. experimentalForceLongPolling: Forces the SDK to use long-polling instead of WebSockets.
- *    This frequently resolves the "Could not reach Cloud Firestore backend" error in 
- *    restricted or unstable network environments.
- * 2. localCache: Enables persistent local storage using IndexedDB for offline support.
+ * Initialize Firestore with specific settings to resolve connectivity issues
  */
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,

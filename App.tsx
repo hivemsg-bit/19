@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-// Use import type for User to avoid resolution issues with modular SDK types
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { 
   collection, 
@@ -10,7 +9,8 @@ import {
   updateDoc, 
   doc, 
   serverTimestamp, 
-  setDoc 
+  setDoc,
+  getDoc
 } from 'firebase/firestore';
 import { auth, db } from './lib/firebase';
 import { Layout } from './components/Layout';
@@ -26,9 +26,10 @@ import { Testimonials } from './components/Testimonials';
 import { AuthModal } from './components/AuthModal';
 import { StudentDashboard } from './components/StudentDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
+import { TeacherDashboard } from './components/TeacherDashboard';
 import { Checkout } from './components/Checkout';
 
-type UserRole = 'student' | 'admin' | null;
+type UserRole = 'student' | 'admin' | 'teacher' | null;
 
 const App: React.FC = () => {
   const [isAuthOpen, setAuthOpen] = useState(false);
@@ -40,21 +41,26 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Listen for Auth Changes using modular SDK
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
-        // Admin email check
         if (user.email === 'admin@caexam.online') {
           setUserRole('admin');
         } else {
-          setUserRole('student');
-          // Ensure student exists in Firestore
-          await setDoc(doc(db, "users", user.uid), {
-            name: user.displayName,
-            email: user.email,
-            lastLogin: serverTimestamp()
-          }, { merge: true });
+          // Check role from Firestore
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          const data = userDoc.data();
+          if (data?.role === 'teacher') {
+            setUserRole('teacher');
+          } else {
+            setUserRole('student');
+            await setDoc(doc(db, "users", user.uid), {
+              name: user.displayName,
+              email: user.email,
+              lastLogin: serverTimestamp(),
+              role: 'student'
+            }, { merge: true });
+          }
         }
       } else {
         setUserRole(null);
@@ -62,18 +68,14 @@ const App: React.FC = () => {
       setLoading(false);
     });
 
-    // Listen for Firestore Leads (Real-time)
     const qLeads = query(collection(db, "leads"));
     const unsubscribeLeads = onSnapshot(qLeads, (snapshot) => {
-      const leads = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setCallbackRequests(leads);
+      setCallbackRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    // Listen for All Submissions/Tests (Real-time)
     const qTests = query(collection(db, "tests"));
     const unsubscribeTests = onSnapshot(qTests, (snapshot) => {
-      const tests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setAllTests(tests);
+      setAllTests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
     return () => {
@@ -90,20 +92,6 @@ const App: React.FC = () => {
     window.scrollTo(0, 0);
   };
 
-  const handleCallbackRequest = async (data: any) => {
-    try {
-      await addDoc(collection(db, "leads"), {
-        ...data,
-        status: 'Pending',
-        createdAt: serverTimestamp()
-      });
-      alert("Success! Hum aapko jald hi call karenge.");
-    } catch (e) {
-      console.error("Error: ", e);
-      alert("Database error! Please check Firestore Rules.");
-    }
-  };
-
   const handleUpdateTest = async (updatedTest: any) => {
     try {
       const testRef = doc(db, "tests", updatedTest.id);
@@ -111,76 +99,58 @@ const App: React.FC = () => {
           ...updatedTest,
           updatedAt: serverTimestamp()
       });
-    } catch (e) {
-      console.error("Error updating test: ", e);
-    }
+    } catch (e) { console.error(e); }
   };
 
   const handleNewSubmission = async (testData: any) => {
       try {
-          // Since Storage is blocked, we save the submission metadata to Firestore directly
           await addDoc(collection(db, "tests"), {
               ...testData,
               studentId: currentUser?.uid,
               studentName: currentUser?.displayName,
               studentEmail: currentUser?.email,
               status: 'submitted',
+              assignmentStatus: 'unassigned',
               createdAt: serverTimestamp()
           });
-      } catch (e) {
-          console.error(e);
-      }
+      } catch (e) { console.error(e); }
   }
 
-  if (loading) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-brand-cream">
-        <div className="flex flex-col items-center gap-4">
-           <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
-           <p className="font-bold text-slate-600 font-display">CA EXAM ONLINE - Loading...</p>
-        </div>
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center bg-brand-cream">
+      <div className="flex flex-col items-center gap-4">
+         <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
+         <p className="font-bold text-slate-600">CA EXAM ONLINE - Loading...</p>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (checkoutPlan) {
-     return (
-        <Checkout 
-            plan={checkoutPlan} 
-            onBack={() => setCheckoutPlan(null)} 
-            onSuccess={() => { setCheckoutPlan(null); }}
-            user={currentUser ? { name: currentUser.displayName || "Student", email: currentUser.email } : undefined}
-        />
-     );
-  }
+  if (checkoutPlan) return (
+    <Checkout plan={checkoutPlan} onBack={() => setCheckoutPlan(null)} onSuccess={() => setCheckoutPlan(null)} user={currentUser ? { name: currentUser.displayName, email: currentUser.email } : undefined} />
+  );
 
-  if (userRole === 'admin') {
-    return (
-      <AdminDashboard 
-        onLogout={handleLogout} 
-        callbackRequests={callbackRequests} 
-        allSharedTests={allTests} 
-        onUpdateTest={handleUpdateTest} 
-      />
-    );
-  }
+  if (userRole === 'admin') return (
+    <AdminDashboard onLogout={handleLogout} callbackRequests={callbackRequests} allSharedTests={allTests} onUpdateTest={handleUpdateTest} />
+  );
+
+  if (userRole === 'teacher') return (
+    <TeacherDashboard onLogout={handleLogout} tests={allTests.filter(t => t.assignedToId === currentUser?.uid)} onUpdateTest={handleUpdateTest} />
+  );
 
   if (userRole === 'student') {
     const studentTests = allTests.filter(t => t.studentId === currentUser?.uid);
     return (
-      <StudentDashboard 
-        onLogout={handleLogout} 
-        tests={studentTests} 
-        onUpdateTest={handleUpdateTest}
-        onNewSubmission={handleNewSubmission}
-      />
+      <StudentDashboard onLogout={handleLogout} tests={studentTests} onUpdateTest={handleUpdateTest} onNewSubmission={handleNewSubmission} />
     );
   }
 
   return (
     <div className="App">
       <Layout onOpenAuth={() => setAuthOpen(true)}>
-        <Hero onOpenAuth={() => setAuthOpen(true)} onRequestCallback={handleCallbackRequest} />
+        <Hero onOpenAuth={() => setAuthOpen(true)} onRequestCallback={async (data) => {
+          await addDoc(collection(db, "leads"), { ...data, status: 'Pending', createdAt: serverTimestamp() });
+          alert("Success! Hum aapko jald hi call karenge.");
+        }} />
         <TestSeries onBuyNow={(plan) => setCheckoutPlan(plan)} />
         <Benefits />
         <Features />
@@ -190,12 +160,7 @@ const App: React.FC = () => {
         <NewsAndVideo /> 
         <Testimonials />
       </Layout>
-
-      <AuthModal 
-        isOpen={isAuthOpen} 
-        onClose={() => setAuthOpen(false)} 
-        onLoginSuccess={(role) => setUserRole(role)}
-      />
+      <AuthModal isOpen={isAuthOpen} onClose={() => setAuthOpen(false)} onLoginSuccess={(role) => setUserRole(role)} />
     </div>
   );
 };
