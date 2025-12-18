@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { collection, query, onSnapshot, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from './lib/firebase';
 import { Layout } from './components/Layout';
 import { Hero } from './components/Hero';
 import { Benefits } from './components/Benefits';
@@ -18,82 +21,111 @@ type UserRole = 'student' | 'admin' | null;
 
 const App: React.FC = () => {
   const [isAuthOpen, setAuthOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<UserRole>(null);
   const [checkoutPlan, setCheckoutPlan] = useState<any>(null);
+  const [callbackRequests, setCallbackRequests] = useState<any[]>([]);
+  const [allTests, setAllTests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // State for Admin Callback Requests
-  const [callbackRequests, setCallbackRequests] = useState([
-    { id: 101, name: "Rohan Gupta", mobile: "9876543210", course: "CA Inter", date: "24 Oct", status: "Pending" },
-    { id: 102, name: "Sriya Patel", mobile: "9988776655", course: "CA Final", date: "23 Oct", status: "Called" }
-  ]);
+  useEffect(() => {
+    // Listen for Auth Changes
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      if (user) {
+        // Simple Logic: If email is admin, set role admin
+        setUserRole(user.email === 'admin@caexam.online' ? 'admin' : 'student');
+      } else {
+        setUserRole(null);
+      }
+      setLoading(false);
+    });
 
-  const openAuth = () => setAuthOpen(true);
-  const closeAuth = () => setAuthOpen(false);
+    // Listen for Firestore Leads (Real-time)
+    const qLeads = query(collection(db, "leads"));
+    const unsubscribeLeads = onSnapshot(qLeads, (snapshot) => {
+      const leads = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setCallbackRequests(leads);
+    });
 
-  const handleLoginSuccess = (role: UserRole) => {
-    setUserRole(role);
-    setAuthOpen(false);
-    window.scrollTo(0, 0);
-  };
+    // Listen for Shared Tests
+    const qTests = query(collection(db, "tests"));
+    const unsubscribeTests = onSnapshot(qTests, (snapshot) => {
+      const tests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAllTests(tests);
+    });
 
-  const handleLogout = () => {
+    return () => {
+      unsubscribeAuth();
+      unsubscribeLeads();
+      unsubscribeTests();
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    await auth.signOut();
     setUserRole(null);
     setCheckoutPlan(null);
     window.scrollTo(0, 0);
   };
 
-  const handleBuyNow = (plan: any) => {
-    setCheckoutPlan(plan);
-    window.scrollTo(0, 0);
+  const handleCallbackRequest = async (data: any) => {
+    try {
+      await addDoc(collection(db, "leads"), {
+        ...data,
+        status: 'Pending',
+        createdAt: serverTimestamp()
+      });
+      alert("Request Sent! We will call you soon.");
+    } catch (e) {
+      console.error("Error adding document: ", e);
+    }
   };
 
-  const handleCheckoutSuccess = () => {
-     if (!userRole) {
-        setUserRole('student');
-     }
-     setCheckoutPlan(null);
-     window.scrollTo(0, 0);
+  const handleUpdateTest = async (updatedTest: any) => {
+    try {
+      const testRef = doc(db, "tests", updatedTest.id);
+      await updateDoc(testRef, updatedTest);
+    } catch (e) {
+      console.error("Error updating test: ", e);
+    }
   };
 
-  // Handler for Hero Form Submission
-  const handleCallbackRequest = (data: any) => {
-    const newRequest = {
-      id: Date.now(),
-      ...data,
-      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
-      status: "Pending"
-    };
-    setCallbackRequests(prev => [newRequest, ...prev]);
-  };
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-brand-cream">
+        <div className="flex flex-col items-center gap-4">
+           <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
+           <p className="font-bold text-slate-600">Connecting to Cloud...</p>
+        </div>
+      </div>
+    );
+  }
 
-  // CHECKOUT FLOW (Global)
   if (checkoutPlan) {
      return (
         <Checkout 
             plan={checkoutPlan} 
             onBack={() => setCheckoutPlan(null)} 
-            onSuccess={handleCheckoutSuccess}
-            user={userRole === 'student' ? { name: "Demo Student", email: "demo@student.com", mobile: "9999999999" } : undefined}
+            onSuccess={() => { setCheckoutPlan(null); }}
+            user={currentUser ? { name: currentUser.displayName || "Student", email: currentUser.email } : undefined}
         />
      );
   }
 
-  // 1. If Admin Logged In
   if (userRole === 'admin') {
-    return <AdminDashboard onLogout={handleLogout} callbackRequests={callbackRequests} />;
+    return <AdminDashboard onLogout={handleLogout} callbackRequests={callbackRequests} allSharedTests={allTests} onUpdateTest={handleUpdateTest} />;
   }
 
-  // 2. If Student Logged In
   if (userRole === 'student') {
-    return <StudentDashboard onLogout={handleLogout} onBuyPlan={handleBuyNow} />;
+    return <StudentDashboard onLogout={handleLogout} tests={allTests} onUpdateTest={handleUpdateTest} />;
   }
 
-  // 3. Landing Page (Public)
   return (
     <div className="App">
-      <Layout onOpenAuth={openAuth}>
-        <Hero onOpenAuth={openAuth} onRequestCallback={handleCallbackRequest} />
-        <TestSeries onBuyNow={handleBuyNow} />
+      <Layout onOpenAuth={() => setAuthOpen(true)}>
+        <Hero onOpenAuth={() => setAuthOpen(true)} onRequestCallback={handleCallbackRequest} />
+        <TestSeries onBuyNow={(plan) => setCheckoutPlan(plan)} />
         <Benefits />
         <Features />
         <Process />
@@ -105,8 +137,8 @@ const App: React.FC = () => {
 
       <AuthModal 
         isOpen={isAuthOpen} 
-        onClose={closeAuth} 
-        onLoginSuccess={handleLoginSuccess}
+        onClose={() => setAuthOpen(false)} 
+        onLoginSuccess={(role) => setUserRole(role)}
       />
     </div>
   );

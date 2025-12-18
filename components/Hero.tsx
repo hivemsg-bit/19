@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { ChevronRight, CheckCircle, GraduationCap, Phone, Calendar, Users, Sparkles, Check } from 'lucide-react';
+import { ChevronRight, CheckCircle, GraduationCap, Phone, Calendar, Users, Sparkles, Check, Loader2 } from 'lucide-react';
 import { Button } from './Button';
 
 interface HeroProps {
@@ -11,6 +10,7 @@ interface HeroProps {
 export const Hero: React.FC<HeroProps> = ({ onOpenAuth, onRequestCallback }) => {
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
   const [formData, setFormData] = useState({ name: '', mobile: '', course: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const levels = [
@@ -24,10 +24,16 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAuth, onRequestCallback }) => 
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if(formData.name && formData.mobile && formData.course) {
-        if(onRequestCallback) onRequestCallback(formData);
+        setIsSubmitting(true);
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        if(onRequestCallback) {
+            await onRequestCallback(formData);
+        }
+        setIsSubmitting(false);
         setIsSubmitted(true);
     }
   };
@@ -121,22 +127,27 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAuth, onRequestCallback }) => 
                            <Phone size={14} className="text-brand-orange animate-pulse" />
                         </div>
                         <form className="space-y-1.5" onSubmit={handleSubmit}>
-                           <input type="text" name="name" value={formData.name} onChange={handleInputChange} placeholder="Name" required className="w-full px-2 py-1.5 rounded-lg bg-slate-50 border-none text-[10px]" />
-                           <input type="tel" name="mobile" value={formData.mobile} onChange={handleInputChange} placeholder="Mobile" required className="w-full px-2 py-1.5 rounded-lg bg-slate-50 border-none text-[10px]" />
+                           <input type="text" name="name" value={formData.name} onChange={handleInputChange} placeholder="Name" required className="w-full px-2 py-1.5 rounded-lg bg-slate-50 border-none text-[10px] focus:ring-1 focus:ring-brand-orange" />
+                           <input type="tel" name="mobile" value={formData.mobile} onChange={handleInputChange} placeholder="Mobile" required className="w-full px-2 py-1.5 rounded-lg bg-slate-50 border-none text-[10px] focus:ring-1 focus:ring-brand-orange" />
                            <select name="course" value={formData.course} onChange={handleInputChange} required className="w-full px-2 py-1.5 rounded-lg bg-slate-50 border-none text-[10px] text-slate-600">
                               <option value="" disabled>Course</option>
                               <option value="CA Foundation">CA Foundation</option>
                               <option value="CA Inter">CA Inter</option>
                               <option value="CA Final">CA Final</option>
                            </select>
-                           <Button type="submit" fullWidth className="text-[10px] py-1.5">Request Callback</Button>
+                           <Button type="submit" fullWidth className="text-[10px] py-1.5" disabled={isSubmitting}>
+                              {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : 'Request Callback'}
+                           </Button>
                         </form>
                     </>
                 ) : (
                     <div className="text-center py-4 animate-fade-up">
-                        <Check size={20} className="mx-auto text-green-600 mb-1" />
-                        <h3 className="text-xs font-bold text-slate-800">Sent!</h3>
-                        <p className="text-[9px] text-slate-500">Calling you shortly.</p>
+                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2 text-green-600">
+                            <Check size={16} strokeWidth={3} />
+                        </div>
+                        <h3 className="text-xs font-bold text-slate-800">Request Sent!</h3>
+                        <p className="text-[9px] text-slate-500 mt-1">Our CA Expert will call you on <br/><b>{formData.mobile}</b> shortly.</p>
+                        <button onClick={() => setIsSubmitted(false)} className="text-[8px] text-brand-orange mt-2 font-bold hover:underline">Edit Request</button>
                     </div>
                 )}
             </div>
