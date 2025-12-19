@@ -12,8 +12,6 @@ export const AICoach: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const apiKey = process.env.API_KEY;
-
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -24,21 +22,14 @@ export const AICoach: React.FC = () => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    if (!apiKey || apiKey === '') {
-      setMessages(prev => [...prev, { 
-        role: 'ai', 
-        text: "Error: API Key missing. Please add 'API_KEY' in Vercel Environment Variables and Redeploy." 
-      }]);
-      return;
-    }
-
     const userMessage = input.trim();
     setInput('');
     setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
     setIsLoading(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: apiKey });
+      // Fixed: Always use direct process.env.API_KEY initialization and assume it is configured
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: userMessage,
@@ -54,7 +45,7 @@ export const AICoach: React.FC = () => {
       console.error("AI Coach Error:", error);
       let errorMsg = "Service temporarily unavailable. Please try again later.";
       if (error?.message?.includes('API_KEY_INVALID')) {
-        errorMsg = "Invalid API Key. Please check your Vercel Environment Variables.";
+        errorMsg = "Invalid API Key. Please check your deployment settings.";
       }
       setMessages(prev => [...prev, { role: 'ai', text: errorMsg }]);
     } finally {
@@ -84,9 +75,9 @@ export const AICoach: React.FC = () => {
               <div>
                 <h4 className="font-bold text-sm">AI Study Coach</h4>
                 <div className="flex items-center gap-1">
-                  <span className={`w-1.5 h-1.5 rounded-full ${!apiKey ? 'bg-red-500' : 'bg-green-500 animate-pulse'}`}></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
                   <span className="text-[10px] text-slate-400 font-bold uppercase">
-                    {!apiKey ? 'Setup Required' : 'Ready to Help'}
+                    Ready to Help
                   </span>
                 </div>
               </div>
@@ -101,7 +92,7 @@ export const AICoach: React.FC = () => {
                 <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed shadow-sm ${
                   msg.role === 'user' 
                     ? 'bg-brand-primary text-white rounded-tr-none' 
-                    : msg.text.includes('Error') || msg.text.includes('missing') 
+                    : msg.text.includes('Error') || msg.text.includes('unavailable') 
                       ? 'bg-red-50 text-red-700 border border-red-100 rounded-tl-none'
                       : 'bg-white text-slate-700 border border-slate-100 rounded-tl-none'
                 }`}>
@@ -121,11 +112,6 @@ export const AICoach: React.FC = () => {
 
           {/* Input */}
           <form onSubmit={handleSendMessage} className="p-3 bg-white border-t">
-            {!apiKey && (
-              <div className="mb-2 p-2 bg-amber-50 rounded-lg flex items-center gap-2 text-amber-700 text-[10px] font-bold">
-                <AlertTriangle size={12} /> Key not found in Vercel Settings
-              </div>
-            )}
             <div className="relative">
               <input 
                 type="text" 

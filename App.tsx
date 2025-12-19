@@ -22,6 +22,8 @@ import { Process } from './components/Process';
 import { CopyChecker } from './components/CopyChecker';
 import { AuthModal } from './components/AuthModal';
 import { FAQ } from './components/FAQ';
+import { TrustBar } from './components/TrustBar';
+import { MessageCircle } from 'lucide-react';
 
 // Lazy load heavy components for performance
 const NewsAndVideo = lazy(() => import('./components/NewsAndVideo').then(m => ({ default: m.NewsAndVideo })));
@@ -165,8 +167,8 @@ const App: React.FC = () => {
       <Layout onOpenAuth={() => setAuthOpen(true)}>
         <Hero onOpenAuth={() => setAuthOpen(true)} onRequestCallback={async (data) => {
           await addDoc(collection(db, "leads"), { ...data, status: 'Pending', createdAt: serverTimestamp() });
-          alert("Success! Hum aapko jald hi call karenge.");
         }} />
+        <TrustBar />
         <TestSeries onBuyNow={(plan) => setCheckoutPlan(plan)} />
         <Benefits />
         <Features />
@@ -179,6 +181,18 @@ const App: React.FC = () => {
         </Suspense>
         <FAQ />
       </Layout>
+      
+      {/* Floating WhatsApp Action */}
+      <a 
+        href="https://wa.me/919876543210" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="fixed bottom-6 left-6 z-[99] bg-[#25D366] text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform active:scale-95 flex items-center justify-center group"
+      >
+        <MessageCircle size={28} className="fill-current" />
+        <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-500 whitespace-nowrap text-sm font-bold uppercase tracking-widest">Chat with Mentor</span>
+      </a>
+
       <AuthModal isOpen={isAuthOpen} onClose={() => setAuthOpen(false)} onLoginSuccess={(role) => setUserRole(role)} />
     </div>
   );
