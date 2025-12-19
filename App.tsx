@@ -21,6 +21,7 @@ import { TestSeries } from './components/TestSeries';
 import { Process } from './components/Process';
 import { CopyChecker } from './components/CopyChecker';
 import { AuthModal } from './components/AuthModal';
+import { FAQ } from './components/FAQ';
 
 // Lazy load heavy components for performance
 const NewsAndVideo = lazy(() => import('./components/NewsAndVideo').then(m => ({ default: m.NewsAndVideo })));
@@ -176,6 +177,7 @@ const App: React.FC = () => {
           <NewsAndVideo /> 
           <Testimonials />
         </Suspense>
+        <FAQ />
       </Layout>
       <AuthModal isOpen={isAuthOpen} onClose={() => setAuthOpen(false)} onLoginSuccess={(role) => setUserRole(role)} />
     </div>

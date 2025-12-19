@@ -104,39 +104,39 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAuth, onRequestCallback }) => 
               </span>
             </h1>
 
-            <p className="text-xs md:text-sm lg:text-lg text-slate-600 mb-10 max-w-2xl mx-auto md:mx-0 leading-relaxed font-medium animate-fade-up">
+            <p className="text-xs md:text-sm lg:text-lg text-slate-600 mb-8 max-w-2xl mx-auto md:mx-0 leading-relaxed font-medium animate-fade-up">
               Expert evaluation by Rankers within 48 hours. <span className="text-brand-primary font-bold">Free AIR Topper's Copy</span> included with every test series.
             </p>
 
-            <div className="flex flex-col items-center md:items-start gap-8 mb-10 animate-fade-up">
-                {/* REFINED CTA BUTTONS */}
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 w-full">
+            <div className="flex flex-col items-center md:items-start gap-6 mb-10 animate-fade-up">
+                {/* COMPACT & SLEEK CTA BUTTONS */}
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 w-full">
                     <button 
                         onClick={handleFreeDemo}
-                        className="group flex items-center gap-4 bg-brand-dark hover:bg-slate-800 text-white rounded-2xl px-6 py-3.5 shadow-xl transition-all hover:-translate-y-0.5 active:scale-95"
+                        className="group flex items-center gap-3 bg-brand-dark hover:bg-slate-800 text-white rounded-xl px-5 py-3 shadow-lg transition-all hover:-translate-y-0.5 active:scale-95 border border-white/5"
                     >
-                        <div className="w-10 h-10 rounded-xl bg-brand-primary/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <Zap size={20} className="text-brand-orange fill-current" />
+                        <div className="w-8 h-8 rounded-lg bg-brand-orange/20 flex items-center justify-center group-hover:bg-brand-orange/30 transition-colors">
+                            <Zap size={16} className="text-brand-orange fill-current" />
                         </div>
                         <div className="text-left">
-                            <div className="text-xs font-black uppercase tracking-wider leading-none mb-1">Free Demo Check</div>
-                            <div className="text-[10px] font-bold text-slate-400">1 Question Free Evaluation</div>
+                            <div className="text-[11px] font-black uppercase tracking-wider leading-none">Free Demo Check</div>
+                            <div className="text-[9px] font-bold text-slate-400 mt-1">1 Question Free Evaluation</div>
                         </div>
-                        <ChevronRight size={18} className="ml-2 text-slate-500 group-hover:translate-x-1 transition-transform" />
+                        <ChevronRight size={14} className="ml-1 text-slate-500 group-hover:translate-x-1 transition-transform" />
                     </button>
                     
                     <button 
                         onClick={onOpenAuth}
-                        className="group flex items-center gap-4 bg-white border-2 border-slate-100 hover:border-brand-primary/30 text-brand-dark rounded-2xl px-6 py-3.5 shadow-lg transition-all hover:-translate-y-0.5 active:scale-95"
+                        className="group flex items-center gap-3 bg-white/80 backdrop-blur-sm border border-slate-200 hover:border-brand-primary/40 text-brand-dark rounded-xl px-5 py-3 shadow-md transition-all hover:-translate-y-0.5 active:scale-95"
                     >
-                        <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <FileText size={20} className="text-brand-primary" />
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                            <FileText size={16} className="text-brand-primary" />
                         </div>
                         <div className="text-left">
-                            <div className="text-xs font-black uppercase tracking-wider leading-none mb-1">View Pricing</div>
-                            <div className="text-[10px] font-bold text-slate-400">Jan '26 Special Offers</div>
+                            <div className="text-[11px] font-black uppercase tracking-wider leading-none">View Pricing</div>
+                            <div className="text-[9px] font-bold text-slate-400 mt-1">Jan '26 Special Offers</div>
                         </div>
-                        <ChevronRight size={18} className="ml-2 text-slate-300 group-hover:translate-x-1 transition-transform" />
+                        <ChevronRight size={14} className="ml-1 text-slate-300 group-hover:translate-x-1 transition-transform" />
                     </button>
                 </div>
 
@@ -165,21 +165,35 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAuth, onRequestCallback }) => 
                    )}
                 </div>
 
+                {/* BRIGHT & HIGHLIGHTED SAMPLE BOXES */}
                 <div className="flex flex-wrap justify-center md:justify-start gap-4">
+                    {/* Evaluated Copy - Bright Primary */}
                     <div 
                         onClick={() => setIsSampleOpen(true)}
-                        className="flex items-center gap-2 px-5 py-2 bg-brand-primary/10 text-brand-primary rounded-full border border-brand-primary/20 cursor-pointer hover:bg-brand-primary hover:text-white transition-all group"
+                        className="flex items-center gap-3 px-6 py-3 bg-brand-primary text-white rounded-2xl shadow-xl shadow-brand-primary/20 cursor-pointer hover:scale-105 active:scale-95 transition-all group relative overflow-hidden"
                     >
-                        <Eye size={14} /> 
-                        <span className="font-black text-[10px] uppercase tracking-wider">Evaluated Copy</span>
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out"></div>
+                        <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                            <Eye size={18} className="animate-pulse text-white" /> 
+                        </div>
+                        <div className="flex flex-col text-left">
+                            <span className="font-black text-[11px] uppercase tracking-wider leading-none">Evaluated Copy</span>
+                            <span className="text-[9px] font-bold text-brand-cream/80 mt-1">Live AIR Checking</span>
+                        </div>
                     </div>
 
+                    {/* Model Paper - Bright Orange Outline */}
                     <div 
                         onClick={() => setIsModelOpen(true)}
-                        className="flex items-center gap-2 px-5 py-2 bg-white text-slate-600 rounded-full border border-slate-200 shadow-sm cursor-pointer hover:bg-slate-50 transition-all group"
+                        className="flex items-center gap-3 px-6 py-3 bg-white text-brand-dark rounded-2xl border-2 border-brand-orange shadow-xl shadow-brand-orange/10 cursor-pointer hover:scale-105 active:scale-95 transition-all group"
                     >
-                        <FileText size={14} /> 
-                        <span className="font-black text-[10px] uppercase tracking-wider">Model Paper</span>
+                        <div className="w-8 h-8 rounded-lg bg-brand-orange/10 flex items-center justify-center">
+                            <FileText size={18} className="text-brand-orange" /> 
+                        </div>
+                        <div className="flex flex-col text-left">
+                            <span className="font-black text-[11px] uppercase tracking-wider leading-none">Model Paper</span>
+                            <span className="text-[9px] font-bold text-brand-orange mt-1">Free Jan '26 PDF</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -202,15 +216,15 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAuth, onRequestCallback }) => 
                         <form className="space-y-4" onSubmit={handleSubmit}>
                            <div className="space-y-1">
                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Your Name</label>
-                               <input type="text" name="name" value={formData.name} onChange={handleInputChange} placeholder="Rahul Sharma" required className="w-full px-5 py-3.5 rounded-xl bg-slate-50 border-none text-sm font-bold focus:ring-2 focus:ring-brand-orange/20 transition-all" />
+                               <input type="text" name="name" value={formData.name} onChange={handleInputChange} placeholder="Rahul Sharma" required className="w-full px-5 py-3.5 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold focus:ring-2 focus:ring-brand-orange/20 transition-all" />
                            </div>
                            <div className="space-y-1">
                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">WhatsApp Mobile</label>
-                               <input type="tel" name="mobile" value={formData.mobile} onChange={handleInputChange} placeholder="+91 98765 XXXXX" required className="w-full px-5 py-3.5 rounded-xl bg-slate-50 border-none text-sm font-bold focus:ring-2 focus:ring-brand-orange/20 transition-all" />
+                               <input type="tel" name="mobile" value={formData.mobile} onChange={handleInputChange} placeholder="+91 98765 XXXXX" required className="w-full px-5 py-3.5 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold focus:ring-2 focus:ring-brand-orange/20 transition-all" />
                            </div>
                            <div className="space-y-1">
                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Course Level</label>
-                               <select name="course" value={formData.course} onChange={handleInputChange} required className="w-full px-5 py-3.5 rounded-xl bg-slate-50 border-none text-sm font-bold text-slate-600 appearance-none focus:ring-2 focus:ring-brand-orange/20 transition-all">
+                               <select name="course" value={formData.course} onChange={handleInputChange} required className="w-full px-5 py-3.5 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold text-slate-600 appearance-none focus:ring-2 focus:ring-brand-orange/20 transition-all">
                                   <option value="" disabled>Select Course</option>
                                   <option value="CA Foundation">CA Foundation</option>
                                   <option value="CA Inter">CA Inter</option>
