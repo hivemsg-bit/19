@@ -24,8 +24,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 /**
- * Initialize Firestore with optimized settings for connectivity.
- * forceLongPolling: true helps when standard gRPC/WebSockets are blocked or unstable.
+ * Initialize Firestore with specific settings to resolve connectivity issues
  */
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,

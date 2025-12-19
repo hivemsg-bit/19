@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Menu, X, ChevronRight } from 'lucide-react';
 import { Button } from './Button';
@@ -61,7 +60,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
              className="flex items-center gap-2 cursor-pointer group flex-shrink-0"
              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           >
-            <div className="w-9 h-9 relative transition-transform duration-300 group-hover:scale-105">
+            <div className="w-8 h-8 relative transition-transform duration-300 group-hover:scale-105">
                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
                   <rect x="10" y="10" width="80" height="80" rx="20" fill="#2D3A26" />
                   <path d="M35 30H65C67.7614 30 70 32.2386 70 35V70C70 72.7614 67.7614 75 65 75H35C32.2386 75 30 72.7614 30 70V35C30 32.2386 32.2386 30 35 30Z" fill="#FFFFFF" opacity="0.9"/>
@@ -69,41 +68,41 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
                </svg>
             </div>
             
-            <span className="text-2xl font-display font-bold tracking-tight text-slate-800 flex items-baseline">
+            <span className="text-xl font-display font-bold tracking-tight text-slate-800 flex items-baseline">
               ca<span className="text-brand-primary">exam</span>
-              <span className="text-brand-orange font-hand text-3xl ml-0.5 transform -rotate-2 origin-bottom-left">.online</span>
+              <span className="text-brand-orange font-hand text-2xl ml-0.5 transform -rotate-2 origin-bottom-left">.online</span>
             </span>
           </div>
 
-          <nav className="hidden lg:flex items-center gap-8 ml-16">
+          <nav className="hidden lg:flex items-center gap-6 ml-12">
             {navLinks.map((link) => (
               <a
                 key={link.name}
                 href={link.href}
                 onClick={(e) => handleNavClick(e, link)}
-                className={`text-[17px] font-bold tracking-tight transition-all duration-200 font-sans whitespace-nowrap relative py-1
+                className={`text-[15px] font-semibold tracking-tight transition-all duration-200 font-sans whitespace-nowrap relative py-1
                   ${activeLink === link.name 
                     ? 'text-brand-dark' 
                     : 'text-slate-600 hover:text-brand-primary'
                   }`}
               >
                 {link.name}
-                <span className={`absolute bottom-0 left-0 w-full h-[3px] rounded-full bg-brand-orange transform transition-transform duration-300 origin-left ${
-                  activeLink === link.name ? 'scale-x-100' : 'scale-x-0'
+                <span className={`absolute bottom-0 left-0 w-full h-[2px] rounded-full bg-brand-orange transform transition-transform duration-300 origin-left ${
+                  activeLink === link.name ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'
                 }`}></span>
               </a>
             ))}
           </nav>
 
-          <div className="hidden lg:flex items-center gap-6 ml-auto">
+          <div className="hidden lg:flex items-center gap-4 ml-auto">
             <span 
               onClick={onOpenAuth}
-              className="text-[15px] font-bold text-slate-600 hover:text-brand-primary cursor-pointer font-sans transition-colors"
+              className="text-sm font-semibold text-slate-500 hover:text-brand-primary cursor-pointer font-sans transition-colors"
             >
               Log in
             </span>
-            <Button variant="primary" size="md" onClick={onOpenAuth} className="px-6 py-2.5 text-sm font-bold uppercase tracking-wide">
-              Get Started <ChevronRight size={16} className="ml-1" strokeWidth={3} />
+            <Button variant="primary" size="sm" onClick={onOpenAuth} className="px-5 py-2 text-xs">
+              Get Started <ChevronRight size={14} className="ml-1" strokeWidth={2.5} />
             </Button>
           </div>
 
@@ -111,7 +110,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
             className="lg:hidden p-2 text-slate-600 hover:text-brand-primary transition-colors focus:outline-none"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           >
-            {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
       </div>
@@ -121,12 +120,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
           isMobileMenuOpen ? 'opacity-100 scale-y-100 visible' : 'opacity-0 scale-y-0 invisible'
         }`}
       >
-        <div className="p-6 space-y-3">
+        <div className="p-4 space-y-2">
           {navLinks.map((link) => (
             <a
               key={link.name}
               href={link.href}
-              className={`block text-lg font-bold px-4 py-3 rounded-2xl transition-colors font-sans
+              className={`block text-base font-semibold px-4 py-2.5 rounded-xl transition-colors font-sans
                 ${activeLink === link.name 
                   ? 'bg-brand-primary/10 text-brand-dark' 
                   : 'text-slate-600 hover:text-brand-primary hover:bg-white'
@@ -136,11 +135,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
               {link.name}
             </a>
           ))}
-          <div className="pt-6 border-t border-brand-secondary/20 flex flex-col gap-3">
-            <Button variant="outline" fullWidth size="md" onClick={() => { setIsMobileMenuOpen(false); onOpenAuth(); }}>
+          <div className="pt-4 border-t border-brand-secondary/20 flex flex-col gap-2">
+            <Button variant="outline" fullWidth size="sm" onClick={() => { setIsMobileMenuOpen(false); onOpenAuth(); }}>
               Log in
             </Button>
-            <Button variant="primary" fullWidth size="md" onClick={() => { setIsMobileMenuOpen(false); onOpenAuth(); }}>
+            <Button variant="primary" fullWidth size="sm" onClick={() => { setIsMobileMenuOpen(false); onOpenAuth(); }}>
               Get Started
             </Button>
           </div>

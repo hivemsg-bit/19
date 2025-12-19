@@ -1,5 +1,8 @@
 {
-  "name": "Step-by-Step Website Builder",
-  "description": "A responsive website built iteratively, starting with the navigation menu.",
-  "requestFramePermissions": []
+  "name": "CA Exam Online - Test Series Platform",
+  "description": "India's #1 CA Test Series platform for CA Final, Inter & Foundation with AI Coaching and Expert Evaluation.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
 }

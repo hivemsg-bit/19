@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Navbar } from './Navbar';
 import { Footer } from './Footer';
@@ -12,7 +11,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onOpenAuth }) => {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar onOpenAuth={onOpenAuth} />
-      <main className="flex-grow pt-20 lg:pt-24">
+      <main className="flex-grow pt-16">
         {children}
       </main>
       <Footer />

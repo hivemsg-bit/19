@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { 
   collection, 
@@ -18,26 +18,18 @@ import { Hero } from './components/Hero';
 import { Benefits } from './components/Benefits';
 import { Features } from './components/Features';
 import { TestSeries } from './components/TestSeries';
+import { NewsAndVideo } from './components/NewsAndVideo';
 import { Process } from './components/Process';
 import { CopyChecker } from './components/CopyChecker';
+import { Mentors } from './components/Mentors';
+import { Testimonials } from './components/Testimonials';
 import { AuthModal } from './components/AuthModal';
-
-// Lazy load heavy components for performance
-const NewsAndVideo = lazy(() => import('./components/NewsAndVideo').then(m => ({ default: m.NewsAndVideo })));
-const Mentors = lazy(() => import('./components/Mentors').then(m => ({ default: m.Mentors })));
-const Testimonials = lazy(() => import('./components/Testimonials').then(m => ({ default: m.Testimonials })));
-const StudentDashboard = lazy(() => import('./components/StudentDashboard').then(m => ({ default: m.StudentDashboard })));
-const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
-const TeacherDashboard = lazy(() => import('./components/TeacherDashboard').then(m => ({ default: m.TeacherDashboard })));
-const Checkout = lazy(() => import('./components/Checkout').then(m => ({ default: m.Checkout })));
+import { StudentDashboard } from './components/StudentDashboard';
+import { AdminDashboard } from './components/AdminDashboard';
+import { TeacherDashboard } from './components/TeacherDashboard';
+import { Checkout } from './components/Checkout';
 
 type UserRole = 'student' | 'admin' | 'teacher' | null;
-
-const SectionLoader = () => (
-  <div className="py-20 flex justify-center items-center">
-    <div className="w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
-  </div>
-);
 
 const App: React.FC = () => {
   const [isAuthOpen, setAuthOpen] = useState(false);
@@ -55,6 +47,7 @@ const App: React.FC = () => {
         if (user.email === 'admin@caexam.online') {
           setUserRole('admin');
         } else {
+          // Check role from Firestore
           const userDoc = await getDoc(doc(db, "users", user.uid));
           const data = userDoc.data();
           if (data?.role === 'teacher') {
@@ -133,29 +126,21 @@ const App: React.FC = () => {
   );
 
   if (checkoutPlan) return (
-    <Suspense fallback={<SectionLoader />}>
-      <Checkout plan={checkoutPlan} onBack={() => setCheckoutPlan(null)} onSuccess={() => setCheckoutPlan(null)} user={currentUser ? { name: currentUser.displayName, email: currentUser.email } : undefined} />
-    </Suspense>
+    <Checkout plan={checkoutPlan} onBack={() => setCheckoutPlan(null)} onSuccess={() => setCheckoutPlan(null)} user={currentUser ? { name: currentUser.displayName, email: currentUser.email } : undefined} />
   );
 
   if (userRole === 'admin') return (
-    <Suspense fallback={<SectionLoader />}>
-      <AdminDashboard onLogout={handleLogout} callbackRequests={callbackRequests} allSharedTests={allTests} onUpdateTest={handleUpdateTest} />
-    </Suspense>
+    <AdminDashboard onLogout={handleLogout} callbackRequests={callbackRequests} allSharedTests={allTests} onUpdateTest={handleUpdateTest} />
   );
 
   if (userRole === 'teacher') return (
-    <Suspense fallback={<SectionLoader />}>
-      <TeacherDashboard onLogout={handleLogout} tests={allTests.filter(t => t.assignedToId === currentUser?.uid)} onUpdateTest={handleUpdateTest} />
-    </Suspense>
+    <TeacherDashboard onLogout={handleLogout} tests={allTests.filter(t => t.assignedToId === currentUser?.uid)} onUpdateTest={handleUpdateTest} />
   );
 
   if (userRole === 'student') {
     const studentTests = allTests.filter(t => t.studentId === currentUser?.uid);
     return (
-      <Suspense fallback={<SectionLoader />}>
-        <StudentDashboard onLogout={handleLogout} tests={studentTests} onUpdateTest={handleUpdateTest} onNewSubmission={handleNewSubmission} />
-      </Suspense>
+      <StudentDashboard onLogout={handleLogout} tests={studentTests} onUpdateTest={handleUpdateTest} onNewSubmission={handleNewSubmission} />
     );
   }
 
@@ -171,11 +156,9 @@ const App: React.FC = () => {
         <Features />
         <Process />
         <CopyChecker />
-        <Suspense fallback={<SectionLoader />}>
-          <Mentors />
-          <NewsAndVideo /> 
-          <Testimonials />
-        </Suspense>
+        <Mentors />
+        <NewsAndVideo /> 
+        <Testimonials />
       </Layout>
       <AuthModal isOpen={isAuthOpen} onClose={() => setAuthOpen(false)} onLoginSuccess={(role) => setUserRole(role)} />
     </div>
