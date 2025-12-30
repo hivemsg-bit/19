@@ -12,6 +12,7 @@ import {
   setDoc,
   getDoc
 } from 'firebase/firestore';
+import { Analytics } from '@vercel/analytics/react';
 import { auth, db } from './lib/firebase';
 import { Layout } from './components/Layout';
 import { Hero } from './components/Hero';
@@ -194,6 +195,7 @@ const App: React.FC = () => {
       </a>
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setAuthOpen(false)} onLoginSuccess={(role) => setUserRole(role)} />
+      <Analytics />
     </div>
   );
 };
